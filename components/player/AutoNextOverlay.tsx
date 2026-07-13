@@ -2,6 +2,7 @@
 
 import { Tv, ArrowRight } from 'lucide-react';
 import { ServerData } from '@/lib/api';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface AutoNextOverlayProps {
   nextEpisode: ServerData;
@@ -11,10 +12,11 @@ interface AutoNextOverlayProps {
 }
 
 export default function AutoNextOverlay({ nextEpisode, counter, onCancel, onPlayNow }: AutoNextOverlayProps) {
+  const { t } = useLanguage();
   return (
     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-zinc-950/95 p-6 text-center rounded-none">
       <Tv className="w-12 h-12 text-[#E2B646] mb-3 animate-pulse" />
-      <span className="text-[10px] uppercase font-mono tracking-widest text-zinc-500">Episode Completed</span>
+      <span className="text-[10px] uppercase font-mono tracking-widest text-zinc-500">{t('player.episode_completed')}</span>
       <h3 className="font-serif font-black italic text-xl text-white mt-1 leading-tight">
         Up Next: {nextEpisode.name}
       </h3>

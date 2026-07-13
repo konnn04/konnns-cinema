@@ -1,3 +1,5 @@
+'use client';
+
 import { ServerEpisode } from '@/lib/api';
 import { useLanguage } from '@/hooks/useLanguage';
 
@@ -40,7 +42,7 @@ export default function EpisodeGrid({ episodes, activeServerIdx, onServerChange,
         </div>
       </div>
 
-      <div className="p-6 bg-black/40 border border-zinc-850 rounded-none">
+      <div className="p-6 bg-black/40 border border-zinc-850 rounded-none max-h-[420px] overflow-y-auto custom-scrollbar">
         {activeServerData && activeServerData.length > 0 ? (
           <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-3">
             {activeServerData.map((ep) => {
@@ -64,7 +66,7 @@ export default function EpisodeGrid({ episodes, activeServerIdx, onServerChange,
             })}
           </div>
         ) : (
-          <p className="p-8 text-center text-xs text-zinc-600">No episodes cataloged for this node</p>
+          <p className="p-8 text-center text-xs text-zinc-600">{t('episode.no_episodes')}</p>
         )}
       </div>
     </div>

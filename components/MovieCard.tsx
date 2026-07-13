@@ -175,7 +175,7 @@ export default function MovieCard({ movie, pathImage, onFavoriteChange }: MovieC
                   animate={{ y: 0 }}
                   exit={{ y: '100%' }}
                   transition={{ type: 'tween', duration: 0.22, ease: 'easeOut' }}
-                  className="absolute inset-x-0 bottom-0 top-[25%] bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800/80 p-3 z-30 hidden md:flex flex-col justify-between"
+                  className="absolute inset-x-0 bottom-0 top-[25%] bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800/80 p-3 z-10 hidden md:flex flex-col justify-between"
                 >
                   <div className="space-y-1.5 min-w-0">
                     <div className="flex items-center justify-between gap-1">

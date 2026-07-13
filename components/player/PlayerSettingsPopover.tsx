@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Settings } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 import BetaLabSection from './BetaLabSection';
 
 const SPEEDS = [0.5, 1, 1.25, 1.5, 2];
@@ -22,6 +23,7 @@ export default function PlayerSettingsPopover({
   isSharpenEnabled, onToggleSharpen, playbackRate, onSetRate,
   webgpuSupported = false, fsrError = null, frameInterpolationError = null, audioError = null,
 }: PlayerSettingsPopoverProps) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -54,13 +56,13 @@ export default function PlayerSettingsPopover({
             className="absolute bottom-full right-0 mb-2 w-64 max-h-[80vh] overflow-y-auto no-scrollbar bg-zinc-950 border border-zinc-900 rounded-none p-3.5 shadow-2xl z-30 space-y-4 text-left"
           >
             <div className="text-[9px] uppercase font-mono tracking-widest text-zinc-500 border-b border-zinc-900 pb-2 flex justify-between items-center">
-              <span>PLAYBACK SETTINGS</span>
+              <span>{t('player.settings_title')}</span>
               <Settings size={10} />
             </div>
 
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-sans font-bold text-zinc-400">IMAGE ENHANCE</span>
+                <span className="text-[10px] font-sans font-bold text-zinc-400">{t('player.image_enhance')}</span>
                 <button
                   onClick={onToggleSharpen}
                   className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-none ${
@@ -75,12 +77,12 @@ export default function PlayerSettingsPopover({
                 </button>
               </div>
               <p className="text-[8px] text-zinc-550 leading-tight">
-                Contrast booster & texture sharpen filter overlay.
+                {t('player.enhance_desc')}
               </p>
             </div>
 
             <div className="space-y-1.5 pt-1 border-t border-zinc-900">
-              <span className="text-[10px] font-sans font-bold text-zinc-400 block">PLAYBACK SPEED</span>
+              <span className="text-[10px] font-sans font-bold text-zinc-400 block">{t('player.playback_speed')}</span>
               <div className="grid grid-cols-5 gap-1">
                 {SPEEDS.map((rate) => (
                   <button

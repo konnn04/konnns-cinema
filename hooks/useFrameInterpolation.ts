@@ -1,71 +1,39 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect, RefObject } from 'react';
-import { MOTION_ESTIMATION_SHADER, INTERPOLATE_SHADER } from '@/lib/webgpu/frameInterpolationShaders';
+import { createFrameInterpolationAlgorithm, BLIT_SHADER, type FrameInterpolationMode, type FrameInterpolationAlgorithm } from '@/lib/webgpu/frameInterpolation';
 
-const BLOCK_SIZE = 16;
-const SEARCH_RADIUS = 8;
+export type { FrameInterpolationMode } from '@/lib/webgpu/frameInterpolation';
 
 interface Pipeline {
   device: GPUDevice;
   context: GPUCanvasContext;
   prevTexture: GPUTexture;
   currTexture: GPUTexture;
-  motionTexture: GPUTexture;
-  interpTexture: GPUTexture;
-  motionPipeline: GPUComputePipeline;
-  interpPipeline: GPUComputePipeline;
+  algorithm: FrameInterpolationAlgorithm;
   blitPipeline: GPURenderPipeline;
-  motionBindGroup: GPUBindGroup;
-  interpBindGroup: GPUBindGroup;
   blitBindGroupCurr: GPUBindGroup;
   blitBindGroupInterp: GPUBindGroup;
   width: number;
   height: number;
-  blocksX: number;
-  blocksY: number;
 }
 
 interface UseFrameInterpolationOptions {
   videoRef: RefObject<HTMLVideoElement | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   enabled: boolean;
+  mode?: FrameInterpolationMode;
   /** Called when the pipeline fails after having started -- caller should flip `enabled` back off. */
   onFatalError?: () => void;
 }
 
-// Reuses the same fullscreen-triangle blit shader source as the FSR pipeline
-// (kept inline here to avoid coupling the two BETA features together).
-const BLIT_SHADER = /* wgsl */ `
-struct VertexOut {
-  @builtin(position) position: vec4<f32>,
-  @location(0) uv: vec2<f32>,
-};
-
-@vertex
-fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOut {
-  var pos = array<vec2<f32>, 3>(
-    vec2<f32>(-1.0, -1.0),
-    vec2<f32>(3.0, -1.0),
-    vec2<f32>(-1.0, 3.0),
-  );
-  var out: VertexOut;
-  out.position = vec4<f32>(pos[idx], 0.0, 1.0);
-  out.uv = (pos[idx] * vec2<f32>(0.5, -0.5)) + vec2<f32>(0.5, 0.5);
-  return out;
-}
-
-@group(0) @binding(0) var blitSampler: sampler;
-@group(0) @binding(1) var blitTex: texture_2d<f32>;
-
-@fragment
-fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
-  return textureSampleLevel(blitTex, blitSampler, in.uv, 0.0);
-}
-`;
-
+// Owns video ingestion (prev/curr texture shifting per real decoded frame),
+// the display-refresh-rate presentation loop (picks real vs. generated
+// midpoint frame), and canvas presentation. The actual interpolation
+// algorithm is delegated to lib/webgpu/frameInterpolation/ per `mode` --
+// this hook doesn't need to know how any of them work internally.
 // Controlled by the `enabled` prop, same reasoning as useAudioEnhancer.
-export function useFrameInterpolation({ videoRef, canvasRef, enabled, onFatalError }: UseFrameInterpolationOptions) {
+export function useFrameInterpolation({ videoRef, canvasRef, enabled, mode = 'motion', onFatalError }: UseFrameInterpolationOptions) {
   const [error, setError] = useState<string | null>(null);
   const isSupported = typeof navigator !== 'undefined' && !!navigator.gpu;
 
@@ -96,15 +64,14 @@ export function useFrameInterpolation({ videoRef, canvasRef, enabled, onFatalErr
     if (pipeline) {
       pipeline.prevTexture.destroy();
       pipeline.currTexture.destroy();
-      pipeline.motionTexture.destroy();
-      pipeline.interpTexture.destroy();
+      pipeline.algorithm.destroy();
       pipeline.device.destroy();
     }
     pipelineRef.current = null;
   }, [videoRef]);
 
   // Runs once per *real* decoded video frame: shifts curr->prev, ingests the
-  // new frame, and recomputes motion vectors + the midpoint interpolated frame.
+  // new frame, and recomputes the interpolated midpoint frame.
   const onRealFrame = useCallback(() => {
     if (!activeRef.current) return;
     const video = videoRef.current;
@@ -130,18 +97,7 @@ export function useFrameInterpolation({ videoRef, canvasRef, enabled, onFatalErr
 
       if (hasPrevRef.current) {
         const computeEncoder = pipeline.device.createCommandEncoder();
-        const motionPass = computeEncoder.beginComputePass();
-        motionPass.setPipeline(pipeline.motionPipeline);
-        motionPass.setBindGroup(0, pipeline.motionBindGroup);
-        motionPass.dispatchWorkgroups(Math.ceil(pipeline.blocksX / 8), Math.ceil(pipeline.blocksY / 8));
-        motionPass.end();
-
-        const interpPass = computeEncoder.beginComputePass();
-        interpPass.setPipeline(pipeline.interpPipeline);
-        interpPass.setBindGroup(0, pipeline.interpBindGroup);
-        interpPass.dispatchWorkgroups(Math.ceil(pipeline.width / 8), Math.ceil(pipeline.height / 8));
-        interpPass.end();
-
+        pipeline.algorithm.encodePasses(computeEncoder);
         pipeline.device.queue.submit([computeEncoder.finish()]);
       }
       hasPrevRef.current = true;
@@ -231,9 +187,6 @@ export function useFrameInterpolation({ videoRef, canvasRef, enabled, onFatalErr
       const format = navigator.gpu.getPreferredCanvasFormat();
       context.configure({ device, format, alphaMode: 'opaque' });
 
-      const blocksX = Math.ceil(width / BLOCK_SIZE);
-      const blocksY = Math.ceil(height / BLOCK_SIZE);
-
       const makeFrameTexture = () => device.createTexture({
         size: [width, height],
         format: 'rgba8unorm',
@@ -243,43 +196,11 @@ export function useFrameInterpolation({ videoRef, canvasRef, enabled, onFatalErr
 
       const prevTexture = makeFrameTexture();
       const currTexture = makeFrameTexture();
-      const motionTexture = device.createTexture({
-        size: [blocksX, blocksY],
-        format: 'rg32float',
-        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
-      });
-      const interpTexture = device.createTexture({
-        size: [width, height],
-        format: 'rgba8unorm',
-        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
-      });
+
+      const algorithm = createFrameInterpolationAlgorithm(mode, { device, prevTexture, currTexture, width, height });
 
       const sampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
-
-      const motionParamsBuffer = device.createBuffer({
-        size: 16,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-      });
-      device.queue.writeBuffer(motionParamsBuffer, 0, new Uint32Array([BLOCK_SIZE, SEARCH_RADIUS, blocksX, blocksY]));
-
-      const interpParamsBuffer = device.createBuffer({
-        size: 16,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-      });
-      device.queue.writeBuffer(interpParamsBuffer, 0, new Uint32Array([BLOCK_SIZE, width, height, 0]));
-
-      const motionModule = device.createShaderModule({ code: MOTION_ESTIMATION_SHADER });
-      const interpModule = device.createShaderModule({ code: INTERPOLATE_SHADER });
       const blitModule = device.createShaderModule({ code: BLIT_SHADER });
-
-      const motionPipeline = device.createComputePipeline({
-        layout: 'auto',
-        compute: { module: motionModule, entryPoint: 'main' },
-      });
-      const interpPipeline = device.createComputePipeline({
-        layout: 'auto',
-        compute: { module: interpModule, entryPoint: 'main' },
-      });
       const blitPipeline = device.createRenderPipeline({
         layout: 'auto',
         vertex: { module: blitModule, entryPoint: 'vs_main' },
@@ -287,26 +208,6 @@ export function useFrameInterpolation({ videoRef, canvasRef, enabled, onFatalErr
         primitive: { topology: 'triangle-list' },
       });
 
-      const motionBindGroup = device.createBindGroup({
-        layout: motionPipeline.getBindGroupLayout(0),
-        entries: [
-          { binding: 0, resource: prevTexture.createView() },
-          { binding: 1, resource: currTexture.createView() },
-          { binding: 2, resource: motionTexture.createView() },
-          { binding: 3, resource: { buffer: motionParamsBuffer } },
-        ],
-      });
-      const interpBindGroup = device.createBindGroup({
-        layout: interpPipeline.getBindGroupLayout(0),
-        entries: [
-          { binding: 0, resource: prevTexture.createView() },
-          { binding: 1, resource: currTexture.createView() },
-          { binding: 2, resource: motionTexture.createView() },
-          { binding: 3, resource: interpTexture.createView() },
-          { binding: 4, resource: { buffer: interpParamsBuffer } },
-          { binding: 5, resource: sampler },
-        ],
-      });
       const blitBindGroupCurr = device.createBindGroup({
         layout: blitPipeline.getBindGroupLayout(0),
         entries: [
@@ -318,15 +219,14 @@ export function useFrameInterpolation({ videoRef, canvasRef, enabled, onFatalErr
         layout: blitPipeline.getBindGroupLayout(0),
         entries: [
           { binding: 0, resource: sampler },
-          { binding: 1, resource: interpTexture.createView() },
+          { binding: 1, resource: algorithm.interpTexture.createView() },
         ],
       });
 
       pipelineRef.current = {
-        device, context, prevTexture, currTexture, motionTexture, interpTexture,
-        motionPipeline, interpPipeline, blitPipeline,
-        motionBindGroup, interpBindGroup, blitBindGroupCurr, blitBindGroupInterp,
-        width, height, blocksX, blocksY,
+        device, context, prevTexture, currTexture, algorithm,
+        blitPipeline, blitBindGroupCurr, blitBindGroupInterp,
+        width, height,
       };
 
       activeRef.current = true;
@@ -346,7 +246,7 @@ export function useFrameInterpolation({ videoRef, canvasRef, enabled, onFatalErr
       teardown();
       onFatalError?.();
     }
-  }, [videoRef, canvasRef, isSupported, onRealFrame, displayLoop, teardown, onFatalError]);
+  }, [videoRef, canvasRef, isSupported, mode, onRealFrame, displayLoop, teardown, onFatalError]);
 
   useEffect(() => {
     if (enabled) {
@@ -359,16 +259,7 @@ export function useFrameInterpolation({ videoRef, canvasRef, enabled, onFatalErr
     }
     return () => teardown();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled]);
+  }, [enabled, mode]);
 
-  const toggle = useCallback((next: boolean) => {
-    if (next && !isSupported) {
-      setError('This browser does not support WebGPU.');
-      return;
-    }
-    // `enabled` is a controlled prop from the parent — the parent is
-    // responsible for flipping it via BetaLabSection's callbacks.
-  }, [isSupported]);
-
-  return { enabled, toggle, isSupported, error };
+  return { isSupported, error };
 }

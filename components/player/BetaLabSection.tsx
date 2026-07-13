@@ -3,6 +3,8 @@
 import { FlaskConical } from 'lucide-react';
 import { usePreferencesStore } from '@/lib/stores/usePreferencesStore';
 import type { AudioPreset } from '@/hooks/useAudioEnhancer';
+import type { UpscaleMode } from '@/lib/webgpu/upscale';
+import type { FrameInterpolationMode } from '@/lib/webgpu/frameInterpolation';
 
 interface BetaLabSectionProps {
   webgpuSupported: boolean;
@@ -20,27 +22,6 @@ const AUDIO_PRESETS: { value: AudioPreset; label: string }[] = [
   { value: 'surround', label: 'Virtual Surround' },
 ];
 
-function BetaToggle({ label, checked, disabled, onChange }: { label: string; checked: boolean; disabled?: boolean; onChange: () => void }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className={`text-[10px] font-sans font-bold ${disabled ? 'text-zinc-700' : 'text-zinc-400'}`}>{label}</span>
-      <button
-        onClick={onChange}
-        disabled={disabled}
-        className={`relative inline-flex h-4 w-8 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${
-          disabled ? 'bg-zinc-900 cursor-not-allowed' : 'cursor-pointer'
-        } ${checked ? 'bg-[#E2B646]' : 'bg-zinc-800'}`}
-      >
-        <span
-          className={`pointer-events-none inline-block h-2.5 w-2.5 transform rounded-full bg-black shadow-lg ring-0 transition duration-200 ${
-            checked ? 'translate-x-4.5' : 'translate-x-1'
-          }`}
-        />
-      </button>
-    </div>
-  );
-}
-
 // Experimental player enhancements: WebGPU upscaling, WebGPU frame
 // interpolation, and Web Audio based audio presets. All BETA -- disabled by
 // default, opt-in per browser session state persisted in preferences.
@@ -49,8 +30,12 @@ export default function BetaLabSection({ webgpuSupported, fsrError, frameInterpo
   const setBetaAudioPreset = usePreferencesStore((s) => s.setBetaAudioPreset);
   const betaFsrUpscale = usePreferencesStore((s) => s.betaFsrUpscale);
   const setBetaFsrUpscale = usePreferencesStore((s) => s.setBetaFsrUpscale);
+  const betaFsrUpscaleMode = usePreferencesStore((s) => s.betaFsrUpscaleMode);
+  const setBetaFsrUpscaleMode = usePreferencesStore((s) => s.setBetaFsrUpscaleMode);
   const betaFrameInterpolation = usePreferencesStore((s) => s.betaFrameInterpolation);
   const setBetaFrameInterpolation = usePreferencesStore((s) => s.setBetaFrameInterpolation);
+  const betaFrameInterpolationMode = usePreferencesStore((s) => s.betaFrameInterpolationMode);
+  const setBetaFrameInterpolationMode = usePreferencesStore((s) => s.setBetaFrameInterpolationMode);
 
   return (
     <div className="space-y-3 pt-1 border-t border-zinc-900">
@@ -83,12 +68,34 @@ export default function BetaLabSection({ webgpuSupported, fsrError, frameInterpo
             <span className="text-[7px] font-mono px-1 border border-[#E2B646]/40 text-[#E2B646]">BETA</span>
           </span>
         </div>
-        <BetaToggle
-          label={webgpuSupported ? 'WebGPU upscale + sharpen' : 'WebGPU not supported'}
-          checked={betaFsrUpscale}
+        <select
+          value={betaFsrUpscale ? betaFsrUpscaleMode : 'off'}
           disabled={!webgpuSupported}
-          onChange={() => setBetaFsrUpscale(!betaFsrUpscale)}
-        />
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === 'off') {
+              setBetaFsrUpscale(false);
+            } else {
+              setBetaFsrUpscaleMode(v as UpscaleMode);
+              setBetaFsrUpscale(true);
+            }
+          }}
+          className="w-full bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-300 px-2 py-1.5 focus:outline-none focus:border-[#E2B646] cursor-pointer disabled:cursor-not-allowed disabled:text-zinc-700"
+        >
+          <option value="off">{webgpuSupported ? 'Off' : 'WebGPU not supported'}</option>
+          <option value="sharpen">harpen (light)</option>
+          <option value="fsr">Upscale + Sharpen (heavy)</option>
+          <option value="anime4k">Anime4K (heavy, best for anime)</option>
+          <option value="websr">WebSR (experimental)</option>
+        </select>
+        {betaFsrUpscale && (
+          <p className="text-[8px] text-zinc-600 leading-tight">
+            {betaFsrUpscaleMode === 'sharpen' && 'Edge-contrast sharpen only, native resolution -- cheap, minimal stutter risk.'}
+            {betaFsrUpscaleMode === 'fsr' && 'Bicubic upscale + sharpen, GPU-heavier -- most visible in Fullscreen/Theater Mode, can contend with video decode on weaker GPUs.'}
+            {betaFsrUpscaleMode === 'anime4k' && 'Real Anime4K CNN pipeline (anime4k-webgpu) -- best quality on anime line art, but heavy; most likely to stutter on integrated GPUs.'}
+            {betaFsrUpscaleMode === 'websr' && 'Different AI upscale library (@websr/websr), also Anime4K-based. Pre-1.0 per its own author -- expect bugs, may change or break between updates.'}
+          </p>
+        )}
         {fsrError && <p className="text-[8px] text-red-500 leading-tight">{fsrError}</p>}
       </div>
 
@@ -99,12 +106,31 @@ export default function BetaLabSection({ webgpuSupported, fsrError, frameInterpo
             <span className="text-[7px] font-mono px-1 border border-[#E2B646]/40 text-[#E2B646]">BETA</span>
           </span>
         </div>
-        <BetaToggle
-          label={webgpuSupported ? 'Experimental, may ghost/stutter' : 'WebGPU not supported'}
-          checked={betaFrameInterpolation}
+        <select
+          value={betaFrameInterpolation ? betaFrameInterpolationMode : 'off'}
           disabled={!webgpuSupported}
-          onChange={() => setBetaFrameInterpolation(!betaFrameInterpolation)}
-        />
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === 'off') {
+              setBetaFrameInterpolation(false);
+            } else {
+              setBetaFrameInterpolationMode(v as FrameInterpolationMode);
+              setBetaFrameInterpolation(true);
+            }
+          }}
+          className="w-full bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-300 px-2 py-1.5 focus:outline-none focus:border-[#E2B646] cursor-pointer disabled:cursor-not-allowed disabled:text-zinc-700"
+        >
+          <option value="off">{webgpuSupported ? 'Off' : 'WebGPU not supported'}</option>
+          <option value="blend">Blend (light)</option>
+          <option value="motion">Motion (heavy)</option>
+        </select>
+        {betaFrameInterpolation && (
+          <p className="text-[8px] text-zinc-600 leading-tight">
+            {betaFrameInterpolationMode === 'blend'
+              ? 'Cross-fade only, no motion analysis -- cheap, minimal stutter risk, more ghosting on fast motion.'
+              : 'Motion-compensated, GPU-heavier -- can contend with video decode and cause stutter/stalls on weaker GPUs.'}
+          </p>
+        )}
         {frameInterpolationError && <p className="text-[8px] text-red-500 leading-tight">{frameInterpolationError}</p>}
       </div>
     </div>

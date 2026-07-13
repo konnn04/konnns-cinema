@@ -204,7 +204,7 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
           {}
           <div className="relative w-full aspect-[16/9] md:aspect-[21/9] min-h-[320px] max-h-[620px] overflow-hidden">
             <PosterImage
-              src={resolveImageUrl(movie.poster_url || movie.thumb_url)}
+              src={resolveImageUrl(movie.thumb_url || movie.poster_url)}
               alt={movie.name}
               priority
               className="object-cover object-top brightness-[0.25] contrast-105 scale-105"
@@ -296,7 +296,7 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
                   <div className="p-4 rounded-none bg-[#E2B646]/5 border border-[#E2B646]/20 flex items-center space-x-3 text-sm text-[#E2B646]">
                     <Clock size={16} className="animate-pulse shrink-0" />
                     <div>
-                      <h4 className="font-serif font-black italic tracking-wide">Countdown Monitor</h4>
+                      <h4 className="font-serif font-black italic tracking-wide">{t('movie.countdown')}</h4>
                       <p className="text-xs text-zinc-400 mt-0.5">{countdown}</p>
                     </div>
                   </div>
@@ -305,7 +305,7 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
                 {}
                 <div className="space-y-4">
                   <div className="flex items-center space-x-2 text-xs text-zinc-400 font-sans border-b border-zinc-900 pb-3">
-                    <span className="font-mono text-zinc-500">Directed by:</span>
+                    <span className="font-mono text-zinc-500">{t('movie.directed_by')}</span>
                     <span className="font-semibold text-zinc-200">{movie.director?.join(', ') || 'Unknown'}</span>
                   </div>
 

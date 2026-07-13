@@ -56,14 +56,14 @@ export default function HistoryPage() {
                 className="flex items-center space-x-1.5 px-4 py-2 hover:bg-zinc-900 border border-zinc-850 rounded-none hover:border-red-500 hover:text-red-500 text-xs font-bold text-zinc-400 transition-all cursor-pointer"
               >
                 <Trash2 size={13} />
-                <span>Clear All</span>
+                <span>{t('history.clear_all')}</span>
               </button>
             )}
 
             <Link href="/">
               <button className="flex items-center space-x-1.5 px-4 py-2 bg-zinc-900 border border-zinc-850 rounded-none hover:border-[#E2B646] text-xs font-bold text-zinc-400 hover:text-white transition-all cursor-pointer">
                 <ArrowLeft size={12} />
-                <span>Back Home</span>
+                <span>{t('fav.back')}</span>
               </button>
             </Link>
           </div>

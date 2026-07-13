@@ -48,7 +48,6 @@ export default function HomePage() {
       setSeriesList(series.items);
       setAnimeList(anime.items);
 
-      // Hero section: show movies based on favorite genre, fallback to recently updated
       if (primaryGenreSlug === ANIME_PSEUDO_GENRE.slug) {
         setFeaturedMovies(anime.items.slice(0, 5));
       } else if (primaryGenreSlug) {
@@ -64,11 +63,9 @@ export default function HomePage() {
         setFeaturedMovies(recent.items.slice(0, 5));
       }
 
-      // Recently updated row (always loaded for non-hero display)
       const recent = await api.getRecentlyUpdated(1);
       setRecentlyUpdated(recent.items);
 
-      // Personalized row below hero
       if (primaryGenreSlug) {
         const personalizedLabel = t('home.personalized');
 
@@ -88,7 +85,6 @@ export default function HomePage() {
               items: genreMovies.items,
             });
           } catch {
-            // silently skip personalized row on error
           }
         }
       }
@@ -110,6 +106,7 @@ export default function HomePage() {
       const onboardingDone = usePreferencesStore.getState().onboardingCompleted;
 
       if (onboardingDone && splashCompleted) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         revealDashboard();
       } else if (!splashCompleted) {
         setShowSplash(true);

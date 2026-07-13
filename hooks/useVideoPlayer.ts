@@ -1,16 +1,21 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, RefObject } from 'react';
+import { useState, useEffect, useRef, useCallback, useSyncExternalStore, RefObject } from 'react';
+
+const noopSubscribe = () => () => {};
+
+function getPipSnapshot() {
+  return typeof document !== 'undefined' && document.pictureInPictureEnabled;
+}
+function getPipServerSnapshot() {
+  return false;
+}
 
 interface UseVideoPlayerOptions {
   videoRef: RefObject<HTMLVideoElement | null>;
   containerRef: RefObject<HTMLDivElement | null>;
 }
 
-// Generic HTML5 <video> control surface: play/pause, seek, volume, playback
-// rate, fullscreen, PiP, keyboard shortcuts, and idle-controls auto-hide.
-// Deliberately unaware of HLS/episode/history concerns -- those stay in the
-// page that owns the stream source.
 export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -19,12 +24,10 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
   const [isMuted, setIsMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isPipAvailable] = useState(() => typeof document !== 'undefined' && document.pictureInPictureEnabled);
+  const isPipAvailable = useSyncExternalStore(noopSubscribe, getPipSnapshot, getPipServerSnapshot);
   const [showControls, setShowControls] = useState(true);
   const [skipFeedback, setSkipFeedback] = useState<'forward' | 'backward' | null>(null);
 
-  // While the seek bar is being dragged, timeupdate must not fight the thumb
-  // position -- otherwise small mouse movements get overwritten mid-drag.
   const isScrubbingRef = useRef(false);
 
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -116,10 +119,28 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
   const handleFullscreenToggle = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
-    if (!document.fullscreenElement) {
-      container.requestFullscreen().then(() => setIsFullscreen(true)).catch((err) => console.error('Failed to launch Fullscreen:', err));
-    } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false));
+    try {
+      if (!document.fullscreenElement) {
+        // Some browsers/contexts (permission-policy-restricted iframes, older
+        // UAs) either omit requestFullscreen or return undefined instead of a
+        // rejecting Promise on failure -- guard both instead of assuming a
+        // spec-compliant Promise comes back.
+        const result = container.requestFullscreen?.();
+        if (result && typeof result.then === 'function') {
+          result.then(() => setIsFullscreen(true)).catch((err) => console.error('Failed to launch Fullscreen:', err));
+        } else {
+          setIsFullscreen(true);
+        }
+      } else {
+        const result = document.exitFullscreen?.();
+        if (result && typeof result.then === 'function') {
+          result.then(() => setIsFullscreen(false)).catch((err) => console.error('Failed to exit Fullscreen:', err));
+        } else {
+          setIsFullscreen(false);
+        }
+      }
+    } catch (err) {
+      console.error('Fullscreen toggle failed:', err);
     }
   }, [containerRef]);
 
@@ -152,7 +173,6 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
     };
   }, []);
 
-  // Single click toggles play/pause; double click seeks +/-10s on that half of the frame.
   const handlePlayerAreaClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     if (target.closest('button') || target.closest('input') || target.closest('.controls-deck')) {

@@ -78,7 +78,7 @@ export default function MovieRow({ title, movies, pathImage, onFavoriteChange, i
         {showLeftArrow && (
           <button
             onClick={() => handleScroll('left')}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-10 h-20 bg-gradient-to-r from-cinema-bg to-transparent text-zinc-400 hover:text-white hover:scale-110 transition-all opacity-0 group-hover:opacity-100 hidden md:flex cursor-pointer"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-30 flex items-center justify-center w-10 h-20 bg-gradient-to-r from-cinema-bg to-transparent text-zinc-400 hover:text-white hover:scale-110 transition-all opacity-0 group-hover:opacity-100 hidden md:flex cursor-pointer"
           >
             <ChevronLeft size={36} />
           </button>
@@ -87,7 +87,7 @@ export default function MovieRow({ title, movies, pathImage, onFavoriteChange, i
         {showRightArrow && (
           <button
             onClick={() => handleScroll('right')}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-10 h-20 bg-gradient-to-l from-cinema-bg to-transparent text-zinc-400 hover:text-white hover:scale-110 transition-all opacity-0 group-hover:opacity-100 hidden md:flex cursor-pointer"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-30 flex items-center justify-center w-10 h-20 bg-gradient-to-l from-cinema-bg to-transparent text-zinc-400 hover:text-white hover:scale-110 transition-all opacity-0 group-hover:opacity-100 hidden md:flex cursor-pointer"
           >
             <ChevronRight size={36} />
           </button>

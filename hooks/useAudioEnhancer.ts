@@ -17,9 +17,6 @@ interface AudioNodes {
   outputGain: GainNode;
 }
 
-// Synthesizes a short, decaying stereo noise impulse response at runtime --
-// there's no bundled audio asset, so "virtual surround" is a lightweight
-// convolution reverb rather than true HRTF spatialization.
 function buildSurroundImpulse(ctx: AudioContext): AudioBuffer {
   const duration = 0.6;
   const length = Math.floor(ctx.sampleRate * duration);
@@ -158,7 +155,6 @@ export function useAudioEnhancer({ videoRef, preset }: UseAudioEnhancerOptions) 
     // ensureGraph()/applyPreset() are synchronous and only ever set `error`
     // on an actual failure, which is exactly what an effect is for here:
     // reacting to the `preset` prop by synchronizing the Web Audio graph.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     const nodes = ensureGraph();
     if (!nodes) return;
     if (nodes.ctx.state === 'suspended') {

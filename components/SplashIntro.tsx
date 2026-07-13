@@ -168,7 +168,7 @@ export default function SplashIntro({ onComplete }: SplashIntroProps) {
               >
                 <div className="flex items-center space-x-2 text-xs text-brand-orange/80 mb-2 justify-center">
                   <ShieldAlert size={14} />
-                  <span>Access Authentication Required</span>
+                  <span>{t('splash.auth_required') || 'Access Authentication Required'}</span>
                 </div>
                 <input
                   type="password"

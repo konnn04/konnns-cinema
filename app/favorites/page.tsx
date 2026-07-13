@@ -2,6 +2,7 @@
 
 import { Heart, Grid, Sparkles, Film, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useLanguage } from '@/hooks/useLanguage';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MobileNav from '@/components/MobileNav';
@@ -10,6 +11,7 @@ import { useFavoritesStore } from '@/lib/stores/useFavoritesStore';
 import { useHasMounted } from '@/hooks/useHasMounted';
 
 export default function FavoritesPage() {
+  const { t } = useLanguage();
   const favorites = useFavoritesStore((s) => s.favorites);
   // Zustand's persist middleware rehydrates from localStorage after mount, so
   // the very first client render intentionally shows the loading skeleton.
@@ -26,13 +28,13 @@ export default function FavoritesPage() {
           <div className="flex items-center space-x-3">
             <Heart className="text-[#E2B646] w-6 h-6 animate-pulse fill-[#E2B646]" />
             <h1 className="font-serif font-black italic text-2xl sm:text-3xl tracking-tight text-white uppercase">
-              Pinned Favorites
+              {t('fav.title')}
             </h1>
           </div>
           <Link href="/">
             <button className="flex items-center space-x-2 px-4 py-2 bg-zinc-900 border border-zinc-850 rounded-none hover:border-[#E2B646] text-xs font-bold text-zinc-400 hover:text-white transition-all cursor-pointer">
               <ArrowLeft size={12} />
-              <span>Back Home</span>
+              <span>{t('fav.back')}</span>
             </button>
           </Link>
         </div>
@@ -55,12 +57,12 @@ export default function FavoritesPage() {
           <div className="text-center py-32 space-y-4">
             <Heart className="w-12 h-12 text-[#E2B646] mx-auto animate-pulse" />
             <div>
-              <h4 className="font-serif font-black italic text-lg text-white">Your Board is Empty</h4>
-              <p className="text-xs text-zinc-600 font-sans mt-1">Tap the heart or pin option on any card to save titles here</p>
+              <h4 className="font-serif font-black italic text-lg text-white">{t('fav.empty')}</h4>
+              <p className="text-xs text-zinc-600 font-sans mt-1">{t('fav.empty_desc')}</p>
             </div>
             <Link href="/search">
               <button className="px-6 py-2.5 bg-[#E2B646] text-black rounded-none text-xs font-serif font-black tracking-widest uppercase hover:bg-white transition-all cursor-pointer">
-                Explore Catalog
+                {t('fav.explore')}
               </button>
             </Link>
           </div>
