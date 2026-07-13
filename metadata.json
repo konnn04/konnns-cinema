@@ -1,0 +1,6 @@
+{
+  "name": "Konnn's Cinema",
+  "description": "A Cinematic Movie Streaming Website using the KKPhim API with high-quality streaming, immersive visuals, and a personalized cinema experience.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
