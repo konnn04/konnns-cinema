@@ -1,14 +1,23 @@
 'use client';
 
 import { useState, useEffect, useRef, use, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowRight, Tv, X } from 'lucide-react';
+import { ArrowRight, Tv, X, Heart, Bell, BellOff, Star } from 'lucide-react';
 import Hls from 'hls.js';
 import { motion, AnimatePresence } from 'motion/react';
 import { api, MovieDetail, ServerEpisode, ServerData } from '@/lib/api';
 import { isAdultMovie, isAdultVerified, setAdultVerified } from '@/lib/adult';
+import { searchAnime, AnimeInfo, translateAnimeStatus, translateAnimeFormat, formatNextAiringTime } from '@/lib/anime';
+import { useLanguage } from '@/hooks/useLanguage';
 import { useWatchHistoryStore } from '@/lib/stores/useWatchHistoryStore';
+import { useFavoritesStore } from '@/lib/stores/useFavoritesStore';
+import { useReminderStore } from '@/lib/stores/useReminderStore';
+import { usePreferencesStore } from '@/lib/stores/usePreferencesStore';
 import { useVideoPlayer } from '@/hooks/useVideoPlayer';
+import { useAudioEnhancer } from '@/hooks/useAudioEnhancer';
+import { useFsrUpscale } from '@/hooks/useFsrUpscale';
+import { useFrameInterpolation } from '@/hooks/useFrameInterpolation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MobileNav from '@/components/MobileNav';
@@ -28,6 +37,7 @@ const ANIME_SKIP_SECONDS = 90;
 const ANIME_INTRO_WINDOW_SECONDS = 100;
 
 export default function WatchPage({ params }: WatchPageProps) {
+  const { t, language } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { slug, episode: episodeSlug } = use(params);
@@ -36,6 +46,7 @@ export default function WatchPage({ params }: WatchPageProps) {
 
   const [movie, setMovie] = useState<MovieDetail | null>(null);
   const [episodes, setEpisodes] = useState<ServerEpisode[]>([]);
+  const [animeInfo, setAnimeInfo] = useState<AnimeInfo | null>(null);
   const [activeServerIdx, setActiveServerIdx] = useState(initialServerIdx);
   const [currentEpisode, setCurrentEpisode] = useState<ServerData | null>(null);
   const [nextEpisode, setNextEpisode] = useState<ServerData | null>(null);
@@ -61,10 +72,39 @@ export default function WatchPage({ params }: WatchPageProps) {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
+  const effectsCanvasRef = useRef<HTMLCanvasElement>(null);
   const autoNextIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hlsInstanceRef = useRef<Hls | null>(null);
 
   const player = useVideoPlayer({ videoRef, containerRef: playerContainerRef });
+
+  // BETA lab: WebGPU upscale/frame-interpolation + Web Audio enhancement.
+  // Enabled state is persisted preference, toggled from the player settings popover.
+  const betaAudioPreset = usePreferencesStore((s) => s.betaAudioPreset);
+  const betaFsrUpscale = usePreferencesStore((s) => s.betaFsrUpscale);
+  const betaFsrUpscaleMode = usePreferencesStore((s) => s.betaFsrUpscaleMode);
+  const betaFrameInterpolation = usePreferencesStore((s) => s.betaFrameInterpolation);
+  const betaFrameInterpolationMode = usePreferencesStore((s) => s.betaFrameInterpolationMode);
+  const setBetaFsrUpscale = usePreferencesStore((s) => s.setBetaFsrUpscale);
+  const setBetaFrameInterpolation = usePreferencesStore((s) => s.setBetaFrameInterpolation);
+
+  const audioEnhancer = useAudioEnhancer({ videoRef, preset: betaAudioPreset });
+  const fsrUpscale = useFsrUpscale({
+    videoRef,
+    canvasRef: effectsCanvasRef,
+    enabled: betaFsrUpscale,
+    mode: betaFsrUpscaleMode,
+    onFatalError: useCallback(() => setBetaFsrUpscale(false), [setBetaFsrUpscale]),
+  });
+  const frameInterpolation = useFrameInterpolation({
+    videoRef,
+    canvasRef: effectsCanvasRef,
+    enabled: betaFrameInterpolation,
+    mode: betaFrameInterpolationMode,
+    onFatalError: useCallback(() => setBetaFrameInterpolation(false), [setBetaFrameInterpolation]),
+  });
+  const webgpuSupported = fsrUpscale.isSupported;
+  const showEffectsCanvas = betaFsrUpscale || betaFrameInterpolation;
 
   const isAnime = movie?.type === 'hoathinh';
   const showSkipIntroPrompt = isAnime && !skipIntroDismissed && player.isPlaying
@@ -75,6 +115,26 @@ export default function WatchPage({ params }: WatchPageProps) {
     setIntroDismissedForEpisode(episodeSlug);
   }, [player, episodeSlug]);
 
+  // Pin/Remind quick actions -- so people don't have to bounce back to the
+  // movie detail page just to favorite or set a reminder while watching.
+  const isFavorited = useFavoritesStore((s) => (movie ? s.isFavorited(movie.slug) : false));
+  const toggleFavoriteInStore = useFavoritesStore((s) => s.toggleFavorite);
+  const isReminded = useReminderStore((s) => (movie ? s.isReminded(movie.slug) : false));
+  const toggleReminderInStore = useReminderStore((s) => s.toggleReminder);
+
+  const toggleFavorite = () => {
+    if (!movie) return;
+    toggleFavoriteInStore(movie);
+  };
+
+  const toggleReminder = () => {
+    if (!movie) return;
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    toggleReminderInStore(movie);
+  };
+
   useEffect(() => {
     const fetchWatchData = async () => {
       try {
@@ -83,6 +143,10 @@ export default function WatchPage({ params }: WatchPageProps) {
           setMovie(res.movie);
           const serverEpisodes = res.episodes || [];
           setEpisodes(serverEpisodes);
+
+          if (res.movie.type === 'hoathinh' && res.movie.origin_name) {
+            searchAnime(res.movie.origin_name).then(setAnimeInfo);
+          }
 
           const activeServer = serverEpisodes[activeServerIdx] || serverEpisodes[0];
           if (activeServer && activeServer.server_data) {
@@ -164,8 +228,8 @@ export default function WatchPage({ params }: WatchPageProps) {
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
-        console.error('HLS error occurred:', data);
         if (data.fatal) {
+          console.error('Fatal HLS error:', data);
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
               console.warn('Fatal network error. Retrying HLS connection...');
@@ -180,6 +244,12 @@ export default function WatchPage({ params }: WatchPageProps) {
               hls.destroy();
               break;
           }
+        } else if (data.details !== Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
+          // Buffer-stall detection is routine (brief network/decode jitter,
+          // seeking, tab backgrounding) and hls.js's GapController recovers
+          // from it on its own -- logging every occurrence as an error was
+          // just noise. Other non-fatal event types are still worth a peek.
+          console.warn('Non-fatal HLS event:', data.details);
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -309,6 +379,7 @@ export default function WatchPage({ params }: WatchPageProps) {
               >
                 <video
                   ref={videoRef}
+                  crossOrigin="anonymous"
                   onTimeUpdate={handleTimeUpdate}
                   onDurationChange={player.handleDurationChange}
                   onSeeking={() => setIsBuffering(true)}
@@ -321,13 +392,22 @@ export default function WatchPage({ params }: WatchPageProps) {
                   onPause={player.onPause}
                   onEnded={handleVideoEnded}
                   controls={false}
-                  className="w-full h-full object-contain transition-all duration-300"
+                  className={`w-full h-full object-contain transition-all duration-300 ${showEffectsCanvas ? 'opacity-0' : ''}`}
                   style={{
                     filter: isSharpenEnabled
                       ? 'contrast(1.08) saturate(1.05) brightness(1.02) contrast(1.02)'
                       : 'none'
                   }}
                 />
+
+                {/* BETA: WebGPU upscale / frame interpolation output. The <video>
+                    above stays mounted (opacity-0) so it keeps driving frames + audio. */}
+                {showEffectsCanvas && (
+                  <canvas
+                    ref={effectsCanvasRef}
+                    className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                  />
+                )}
 
                 {isSharpenEnabled && (
                   <div className="absolute inset-0 border border-[#E2B646]/20 pointer-events-none rounded-none glow-gold opacity-40 z-10 animate-pulse" />
@@ -406,6 +486,10 @@ export default function WatchPage({ params }: WatchPageProps) {
                         onFullscreenToggle={player.handleFullscreenToggle}
                         isTheaterMode={isTheaterMode}
                         onTheaterToggle={() => setIsTheaterMode((v) => !v)}
+                        webgpuSupported={webgpuSupported}
+                        fsrError={fsrUpscale.error}
+                        frameInterpolationError={frameInterpolation.error}
+                        audioError={audioEnhancer.error}
                       />
                     </motion.div>
                   )}
@@ -435,6 +519,93 @@ export default function WatchPage({ params }: WatchPageProps) {
                   </span>
                 )}
               </div>
+
+              {/* Ratings + Pin/Remind quick actions, so watching doesn't require
+                  bouncing back to the movie detail page for these */}
+              <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-zinc-900">
+                {!!movie?.tmdb?.vote_average && (
+                  <span className="flex items-center gap-1 px-2 py-1 bg-zinc-950/60 border border-zinc-800 text-[10px] font-mono text-[#E2B646]">
+                    <Star size={11} className="fill-current" />
+                    TMDB {movie.tmdb.vote_average.toFixed(1)}
+                  </span>
+                )}
+                {!!movie?.imdb?.vote_average && (
+                  <span className="flex items-center gap-1 px-2 py-1 bg-zinc-950/60 border border-zinc-800 text-[10px] font-mono text-[#E2B646]">
+                    <Star size={11} className="fill-current" />
+                    IMDb {movie.imdb.vote_average.toFixed(1)}
+                  </span>
+                )}
+
+                <button
+                  onClick={toggleFavorite}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 border text-[10px] font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+                    isFavorited
+                      ? 'border-[#E2B646]/30 bg-[#E2B646]/10 text-[#E2B646]'
+                      : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <Heart size={12} className={isFavorited ? 'fill-[#E2B646]' : ''} />
+                  <span>{isFavorited ? t('movie.pinned') : t('movie.pin')}</span>
+                </button>
+
+                <button
+                  onClick={toggleReminder}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 border text-[10px] font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+                    isReminded
+                      ? 'border-[#E2B646]/30 bg-[#E2B646]/10 text-[#E2B646]'
+                      : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  {isReminded ? <BellOff size={12} /> : <Bell size={12} />}
+                  <span>{isReminded ? (language === 'vi' ? 'Bỏ Nhắc' : 'Unremind') : (language === 'vi' ? 'Nhắc Xem' : 'Remind Me')}</span>
+                </button>
+              </div>
+
+              {/* Genre tags */}
+              {movie?.category && movie.category.length > 0 && (
+                <div className="flex flex-wrap gap-2 pb-3 border-b border-zinc-900">
+                  {movie.category.map((cat) => (
+                    <Link
+                      key={cat.id}
+                      href={`/category/${cat.slug}`}
+                      className="px-2.5 py-1 text-[10px] bg-zinc-900 border border-zinc-850 text-zinc-300 hover:border-[#E2B646] hover:text-[#E2B646] uppercase tracking-widest transition-colors"
+                    >
+                      {cat.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {/* Anime Info from AniList */}
+              {animeInfo && (
+                <div className="flex flex-wrap gap-3 pb-3 border-b border-zinc-900">
+                  {animeInfo.episodes != null && (
+                    <span className="px-2 py-1 bg-zinc-950/60 border border-zinc-800 text-[10px] font-mono text-zinc-300">
+                      {t('anime.episodes')}: <strong>{animeInfo.episodes > 0 ? animeInfo.episodes : '?'}</strong>
+                    </span>
+                  )}
+                  {animeInfo.status && (
+                    <span className="px-2 py-1 bg-zinc-950/60 border border-zinc-800 text-[10px] font-mono text-zinc-300">
+                      {t('anime.status')}: <strong>{translateAnimeStatus(animeInfo.status, language)}</strong>
+                    </span>
+                  )}
+                  {animeInfo.averageScore != null && (
+                    <span className="px-2 py-1 bg-zinc-950/60 border border-zinc-800 text-[10px] font-mono text-[#E2B646]">
+                      {t('anime.score')}: <strong>{animeInfo.averageScore}%</strong>
+                    </span>
+                  )}
+                  {animeInfo.studios.length > 0 && (
+                    <span className="px-2 py-1 bg-zinc-950/60 border border-zinc-800 text-[10px] font-mono text-zinc-300">
+                      {t('anime.studio')}: <strong>{animeInfo.studios[0]}</strong>
+                    </span>
+                  )}
+                  {animeInfo.nextAiringEpisode && (
+                    <span className="px-2 py-1 bg-zinc-950/60 border border-[#E2B646]/20 text-[10px] font-mono text-[#E2B646]">
+                      {t('anime.next_episode')} #{animeInfo.nextAiringEpisode.episode} &mdash; {formatNextAiringTime(animeInfo.nextAiringEpisode.airingAt, language)}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {movie?.content && (
                 <MovieSynopsis

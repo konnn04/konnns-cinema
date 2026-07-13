@@ -1,6 +1,7 @@
 'use client';
 
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Expand, Shrink, Layers, SkipForward } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 import PlayerSettingsPopover from './PlayerSettingsPopover';
 
 interface PlayerControlBarProps {
@@ -35,6 +36,11 @@ interface PlayerControlBarProps {
 
   isTheaterMode: boolean;
   onTheaterToggle: () => void;
+
+  webgpuSupported: boolean;
+  fsrError: string | null;
+  frameInterpolationError: string | null;
+  audioError: string | null;
 }
 
 export default function PlayerControlBar({
@@ -47,7 +53,9 @@ export default function PlayerControlBar({
   isPipAvailable, onTriggerPip,
   isFullscreen, onFullscreenToggle,
   isTheaterMode, onTheaterToggle,
+  webgpuSupported, fsrError, frameInterpolationError, audioError,
 }: PlayerControlBarProps) {
+  const { t } = useLanguage();
   return (
     <div className="space-y-3 controls-deck">
       {/* Interactive Timeline seek bar */}
@@ -104,7 +112,7 @@ export default function PlayerControlBar({
               title="Skip Opening / Ending (90s)"
             >
               <SkipForward size={11} />
-              <span>SKIP OP/EP</span>
+              <span>{t('player.skip_op_ed')}</span>
             </button>
           )}
         </div>
@@ -115,6 +123,10 @@ export default function PlayerControlBar({
             onToggleSharpen={onToggleSharpen}
             playbackRate={playbackRate}
             onSetRate={onSetRate}
+            webgpuSupported={webgpuSupported}
+            fsrError={fsrError}
+            frameInterpolationError={frameInterpolationError}
+            audioError={audioError}
           />
 
           {isPipAvailable && (

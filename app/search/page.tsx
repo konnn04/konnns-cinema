@@ -4,12 +4,14 @@ import { useState, useEffect, use, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Search, SlidersHorizontal, Sliders, RefreshCw, AlertCircle, Sparkles, Film, Calendar, Grid } from 'lucide-react';
 import { api, MovieItem, CategoryItem, CountryItem } from '@/lib/api';
+import { useLanguage } from '@/hooks/useLanguage';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MobileNav from '@/components/MobileNav';
 import MovieCard from '@/components/MovieCard';
 
 function SearchPageContent() {
+  const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -190,19 +192,19 @@ function SearchPageContent() {
         <div className="p-5 bg-black/40 border border-zinc-850 rounded-none space-y-4">
           <div className="flex items-center space-x-2 text-xs font-serif font-bold text-[#E2B646] italic tracking-wider">
             <SlidersHorizontal size={14} className="animate-pulse" />
-            <span>FILTER ENGINE DECK</span>
+            <span>{t('filter.title')}</span>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {/* Genre filter */}
             <div className="flex flex-col space-y-1.5">
-              <span className="text-[9px] font-mono tracking-widest text-zinc-500 uppercase">Genre</span>
+              <span className="text-[9px] font-mono tracking-widest text-zinc-500 uppercase">{t('search.filter_genre_label')}</span>
               <select
                 value={selectedGenre}
                 onChange={(e) => setSelectedGenre(e.target.value)}
                 className="w-full bg-zinc-900 border border-zinc-850 rounded-none px-3 py-2.5 text-xs text-zinc-300 focus:outline-none focus:border-[#E2B646] transition-colors cursor-pointer"
               >
-                <option value="">All Genres</option>
+                <option value="">{t('filter.genre')}</option>
                 {genres.map((g) => (
                   <option key={g.id} value={g.slug}>{g.name}</option>
                 ))}
@@ -211,13 +213,13 @@ function SearchPageContent() {
 
             {/* Country filter */}
             <div className="flex flex-col space-y-1.5">
-              <span className="text-[9px] font-mono tracking-widest text-zinc-500 uppercase">Country</span>
+              <span className="text-[9px] font-mono tracking-widest text-zinc-500 uppercase">{t('search.filter_country_label')}</span>
               <select
                 value={selectedCountry}
                 onChange={(e) => setSelectedCountry(e.target.value)}
                 className="w-full bg-zinc-900 border border-zinc-850 rounded-none px-3 py-2.5 text-xs text-zinc-300 focus:outline-none focus:border-[#E2B646] transition-colors cursor-pointer"
               >
-                <option value="">All Countries</option>
+                <option value="">{t('filter.country')}</option>
                 {countries.map((c) => (
                   <option key={c.id} value={c.slug}>{c.name}</option>
                 ))}
@@ -226,13 +228,13 @@ function SearchPageContent() {
 
             {/* Year filter */}
             <div className="flex flex-col space-y-1.5">
-              <span className="text-[9px] font-mono tracking-widest text-zinc-500 uppercase">Release Year</span>
+              <span className="text-[9px] font-mono tracking-widest text-zinc-500 uppercase">{t('search.filter_year_label')}</span>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
                 className="w-full bg-zinc-900 border border-zinc-850 rounded-none px-3 py-2.5 text-xs text-zinc-300 focus:outline-none focus:border-[#E2B646] transition-colors cursor-pointer"
               >
-                <option value="">All Years</option>
+                <option value="">{t('filter.year')}</option>
                 {years.map((y) => (
                   <option key={y} value={y}>{y}</option>
                 ))}
@@ -241,15 +243,15 @@ function SearchPageContent() {
 
             {/* Sorting field */}
             <div className="flex flex-col space-y-1.5">
-              <span className="text-[9px] font-mono tracking-widest text-zinc-500 uppercase">Sort Order</span>
+              <span className="text-[9px] font-mono tracking-widest text-zinc-500 uppercase">{t('search.filter_sort_label')}</span>
               <select
                 value={sortField}
                 onChange={(e) => setSortField(e.target.value as any)}
                 className="w-full bg-zinc-900 border border-zinc-850 rounded-none px-3 py-2.5 text-xs text-zinc-300 focus:outline-none focus:border-[#E2B646] transition-colors cursor-pointer"
               >
-                <option value="modified.time">Recently Updated</option>
-                <option value="year">Release Year</option>
-                <option value="_id">Database ID</option>
+                <option value="modified.time">{t('filter.sort_recently')}</option>
+                <option value="year">{t('filter.sort_year')}</option>
+                <option value="_id">{t('search.sort_id')}</option>
               </select>
             </div>
 
@@ -283,7 +285,7 @@ function SearchPageContent() {
         ) : error ? (
           <div className="text-center py-20">
             <AlertCircle className="w-12 h-12 text-[#E2B646] mx-auto mb-3 animate-bounce" />
-            <h4 className="font-serif font-black italic text-lg text-white">Grid Fetch Failed</h4>
+            <h4 className="font-serif font-black italic text-lg text-white">{t('search.error_title')}</h4>
             <p className="text-xs text-zinc-500 font-sans max-w-sm mx-auto mt-1 leading-relaxed">{error}</p>
           </div>
         ) : movies.length > 0 ? (
@@ -305,10 +307,10 @@ function SearchPageContent() {
                   {loadingMore ? (
                     <>
                       <div className="w-3.5 h-3.5 border-t border-[#E2B646] rounded-none animate-spin" />
-                      <span>Syncing catalog...</span>
+                      <span>{t('search.syncing')}</span>
                     </>
                   ) : (
-                    <span>LOAD MORE</span>
+                    <span>{t('search.load_more')}</span>
                   )}
                 </button>
               </div>
@@ -318,8 +320,8 @@ function SearchPageContent() {
           <div className="text-center py-32 space-y-4">
             <Film className="w-12 h-12 text-zinc-800 mx-auto animate-pulse" />
             <div>
-              <h4 className="font-serif font-black italic text-lg text-white">No Titles Matched</h4>
-              <p className="text-xs text-zinc-600 font-sans mt-1">Try re-applying filters or adjust your search inputs</p>
+              <h4 className="font-serif font-black italic text-lg text-white">{t('search.no_match')}</h4>
+              <p className="text-xs text-zinc-600 font-sans mt-1">{t('search.no_match_desc')}</p>
             </div>
             <button
               onClick={handleClearFilters}

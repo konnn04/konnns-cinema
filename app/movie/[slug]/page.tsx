@@ -7,9 +7,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Heart, Bell, BellOff, Share2, Sparkles, Clock, AlertCircle } from 'lucide-react';
 import { api, MovieDetail, ServerEpisode, resolveImageUrl } from '@/lib/api';
 import { isAdultMovie, isAdultVerified, setAdultVerified } from '@/lib/adult';
+import { searchAnime, AnimeInfo, formatAnimeEpisodes, translateAnimeStatus, translateAnimeFormat, formatNextAiringTime } from '@/lib/anime';
 import { useFavoritesStore } from '@/lib/stores/useFavoritesStore';
 import { useReminderStore } from '@/lib/stores/useReminderStore';
 import { useWatchHistoryStore } from '@/lib/stores/useWatchHistoryStore';
+import { useLanguage } from '@/hooks/useLanguage';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MobileNav from '@/components/MobileNav';
@@ -27,6 +29,7 @@ interface MoviePageProps {
 }
 
 export default function MovieDetailPage({ params }: MoviePageProps) {
+  const { t, language } = useLanguage();
   const router = useRouter();
   const { slug } = use(params);
 
@@ -40,6 +43,7 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
 
   const [isTearing, setIsTearing] = useState(false);
   const [isStamped, setIsStamped] = useState(false);
+  const [animeInfo, setAnimeInfo] = useState<AnimeInfo | null>(null);
 
   const isFavorited = useFavoritesStore((s) => (movie ? s.isFavorited(movie.slug) : false));
   const toggleFavoriteInStore = useFavoritesStore((s) => s.toggleFavorite);
@@ -70,6 +74,10 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
           if (res.movie.category && res.movie.category.length > 0) {
             const similar = await api.getMoviesByGenre(res.movie.category[0].slug, 1);
             setRecommended(similar.items.filter((item: any) => item.slug !== res.movie.slug).slice(0, 10));
+          }
+
+          if (res.movie.type === 'hoathinh' && res.movie.origin_name) {
+            searchAnime(res.movie.origin_name).then(setAnimeInfo);
           }
         } else {
           setNotFoundFlag(true);
@@ -196,7 +204,7 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
           {}
           <div className="relative w-full aspect-[16/9] md:aspect-[21/9] min-h-[320px] max-h-[620px] overflow-hidden">
             <PosterImage
-              src={resolveImageUrl(movie.poster_url || movie.thumb_url)}
+              src={resolveImageUrl(movie.thumb_url || movie.poster_url)}
               alt={movie.name}
               priority
               className="object-cover object-top brightness-[0.25] contrast-105 scale-105"
@@ -279,7 +287,7 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
                 <div className="flex items-start space-x-2 p-3 rounded-none bg-zinc-950/40 border border-zinc-850 text-[10px] text-zinc-500 leading-relaxed">
                   <AlertCircle size={14} className="text-zinc-600 shrink-0 mt-0.5" />
                   <p>
-                    <strong>Ticket stub:</strong> This UI component is a decorative experience design replicating classic physical theater admission slips. Standard streaming playback commences client-side instantly. No physical purchase required.
+                    <strong>Ticket stub:</strong> {t('movie.ticket_stub')}
                   </p>
                 </div>
 
@@ -288,7 +296,7 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
                   <div className="p-4 rounded-none bg-[#E2B646]/5 border border-[#E2B646]/20 flex items-center space-x-3 text-sm text-[#E2B646]">
                     <Clock size={16} className="animate-pulse shrink-0" />
                     <div>
-                      <h4 className="font-serif font-black italic tracking-wide">Countdown Monitor</h4>
+                      <h4 className="font-serif font-black italic tracking-wide">{t('movie.countdown')}</h4>
                       <p className="text-xs text-zinc-400 mt-0.5">{countdown}</p>
                     </div>
                   </div>
@@ -297,7 +305,7 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
                 {}
                 <div className="space-y-4">
                   <div className="flex items-center space-x-2 text-xs text-zinc-400 font-sans border-b border-zinc-900 pb-3">
-                    <span className="font-mono text-zinc-500">Directed by:</span>
+                    <span className="font-mono text-zinc-500">{t('movie.directed_by')}</span>
                     <span className="font-semibold text-zinc-200">{movie.director?.join(', ') || 'Unknown'}</span>
                   </div>
 
@@ -319,6 +327,70 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
                     </div>
                   )}
                 </div>
+
+                {/* Anime Info from AniList */}
+                {animeInfo && (
+                  <div className="pt-6 border-t border-zinc-900/80 space-y-3">
+                    <h4 className="font-serif font-black italic text-sm text-[#E2B646] uppercase tracking-wider">
+                      {t('anime.info_title')}
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {animeInfo.episodes != null && (
+                        <div className="p-2.5 bg-zinc-950/40 border border-zinc-900">
+                          <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">{t('anime.episodes')}</span>
+                          <span className="text-xs font-bold text-zinc-200 mt-0.5 block">
+                            {animeInfo.episodes > 0 ? animeInfo.episodes : (animeInfo.nextAiringEpisode ? `${animeInfo.nextAiringEpisode.episode - 1}/?` : '?')}
+                            {animeInfo.nextAiringEpisode && <span className="text-zinc-500 font-normal ml-1">(+{t('anime.next_episode').toLowerCase()} #{animeInfo.nextAiringEpisode.episode})</span>}
+                          </span>
+                        </div>
+                      )}
+                      {animeInfo.status && (
+                        <div className="p-2.5 bg-zinc-950/40 border border-zinc-900">
+                          <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">{t('anime.status')}</span>
+                          <span className="text-xs font-bold text-zinc-200 mt-0.5 block">{translateAnimeStatus(animeInfo.status, language)}</span>
+                        </div>
+                      )}
+                      {animeInfo.averageScore != null && (
+                        <div className="p-2.5 bg-zinc-950/40 border border-zinc-900">
+                          <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">{t('anime.score')}</span>
+                          <span className="text-xs font-bold text-[#E2B646] mt-0.5 block">{animeInfo.averageScore}%</span>
+                        </div>
+                      )}
+                      {animeInfo.studios.length > 0 && (
+                        <div className="p-2.5 bg-zinc-950/40 border border-zinc-900">
+                          <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">{t('anime.studio')}</span>
+                          <span className="text-xs font-bold text-zinc-200 mt-0.5 block">{animeInfo.studios.join(', ')}</span>
+                        </div>
+                      )}
+                      {animeInfo.format && (
+                        <div className="p-2.5 bg-zinc-950/40 border border-zinc-900">
+                          <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">{t('anime.format')}</span>
+                          <span className="text-xs font-bold text-zinc-200 mt-0.5 block">{translateAnimeFormat(animeInfo.format, language)}</span>
+                        </div>
+                      )}
+                      {animeInfo.source && (
+                        <div className="p-2.5 bg-zinc-950/40 border border-zinc-900">
+                          <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">{t('anime.source')}</span>
+                          <span className="text-xs font-bold text-zinc-200 mt-0.5 block">{animeInfo.source.replace(/_/g, ' ')}</span>
+                        </div>
+                      )}
+                      {animeInfo.nextAiringEpisode && (
+                        <div className="p-2.5 bg-zinc-950/40 border border-[#E2B646]/20 col-span-2 sm:col-span-3 lg:col-span-4">
+                          <span className="text-[9px] font-mono uppercase tracking-wider text-[#E2B646] block">{t('anime.next_episode')} #{animeInfo.nextAiringEpisode.episode}</span>
+                          <span className="text-xs font-bold text-zinc-200 mt-0.5 block">
+                            {formatNextAiringTime(animeInfo.nextAiringEpisode.airingAt, language)}
+                          </span>
+                        </div>
+                      )}
+                      {animeInfo.genres.length > 0 && (
+                        <div className="p-2.5 bg-zinc-950/40 border border-zinc-900 col-span-2">
+                          <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">{t('anime.genres')}</span>
+                          <span className="text-xs font-bold text-zinc-200 mt-0.5 block">{animeInfo.genres.slice(0, 4).join(', ')}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

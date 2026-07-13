@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ServerEpisode } from '@/lib/api';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface StreamSidebarProps {
   episodes: ServerEpisode[];
@@ -12,13 +13,14 @@ interface StreamSidebarProps {
 }
 
 export default function StreamSidebar({ episodes, activeServerIdx, onServerChange, slug, episodeSlug }: StreamSidebarProps) {
+  const { t } = useLanguage();
   const activeServerData = episodes[activeServerIdx]?.server_data;
 
   return (
     <div className="col-span-1 lg:col-span-4 space-y-6">
       {episodes.length > 0 && (
         <div className="space-y-3">
-          <span className="text-[10px] uppercase font-serif tracking-[0.2em] font-bold text-[#E2B646]">Streaming node</span>
+          <span className="text-[10px] uppercase font-serif tracking-[0.2em] font-bold text-[#E2B646]">{t('watch.server_label')}</span>
           <div className="grid grid-cols-2 gap-2">
             {episodes.map((server, idx) => (
               <button
@@ -38,7 +40,7 @@ export default function StreamSidebar({ episodes, activeServerIdx, onServerChang
       )}
 
       <div className="space-y-3">
-        <span className="text-[10px] uppercase font-serif tracking-[0.2em] font-bold text-[#E2B646]">Episode catalog</span>
+          <span className="text-[10px] uppercase font-serif tracking-[0.2em] font-bold text-[#E2B646]">{t('watch.episode_catalog')}</span>
         <div className="p-4 bg-black/40 border border-zinc-850 rounded-none max-h-[380px] overflow-y-auto no-scrollbar">
           {activeServerData && activeServerData.length > 0 ? (
             <div className="grid grid-cols-4 gap-2">
@@ -60,7 +62,7 @@ export default function StreamSidebar({ episodes, activeServerIdx, onServerChang
               })}
             </div>
           ) : (
-            <p className="p-6 text-center text-xs text-zinc-600">No episodes parsed for this node</p>
+            <p className="p-6 text-center text-xs text-zinc-600">{t('watch.no_episodes_parsed')}</p>
           )}
         </div>
       </div>

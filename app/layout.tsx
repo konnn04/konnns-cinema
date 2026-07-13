@@ -30,8 +30,8 @@ const serif = Be_Vietnam_Pro({
 });
 
 export const metadata: Metadata = {
-  title: "Konnn's Cinema - Premium Movie Streaming Experience",
-  description: "Explore and stream high-quality movies, series, anime, and TV shows on Konnn's Cinema. Enjoy a premium, ad-free watching experience with cinematic details.",
+  title: "Konnn's Cinema",
+  description: "Khám phá và xem phim lẻ, phim bộ, anime trực tuyến trên Konnn's Cinema - nền tảng xem phim trực tuyến miễn phí.",
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {

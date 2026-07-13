@@ -1,4 +1,7 @@
+'use client';
+
 import { ServerEpisode } from '@/lib/api';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface EpisodeGridProps {
   episodes: ServerEpisode[];
@@ -9,6 +12,7 @@ interface EpisodeGridProps {
 }
 
 export default function EpisodeGrid({ episodes, activeServerIdx, onServerChange, activeEpisodeSlug, onEpisodeClick }: EpisodeGridProps) {
+  const { t } = useLanguage();
   const activeServerData = episodes[activeServerIdx]?.server_data;
 
   return (
@@ -16,9 +20,9 @@ export default function EpisodeGrid({ episodes, activeServerIdx, onServerChange,
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h3 className="font-serif font-black text-xl tracking-wide text-[#E2B646] uppercase italic">
-            Streaming Nodes
+            {t('episode.server_list')}
           </h3>
-          <p className="text-[11px] text-zinc-550 font-sans mt-0.5">Choose server then select desired episode index below</p>
+          <p className="text-[11px] text-zinc-550 font-sans mt-0.5">{t('episode.select_server')}</p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -38,7 +42,7 @@ export default function EpisodeGrid({ episodes, activeServerIdx, onServerChange,
         </div>
       </div>
 
-      <div className="p-6 bg-black/40 border border-zinc-850 rounded-none">
+      <div className="p-6 bg-black/40 border border-zinc-850 rounded-none max-h-[420px] overflow-y-auto custom-scrollbar">
         {activeServerData && activeServerData.length > 0 ? (
           <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-3">
             {activeServerData.map((ep) => {
@@ -62,7 +66,7 @@ export default function EpisodeGrid({ episodes, activeServerIdx, onServerChange,
             })}
           </div>
         ) : (
-          <p className="p-8 text-center text-xs text-zinc-600">No episodes cataloged for this node</p>
+          <p className="p-8 text-center text-xs text-zinc-600">{t('episode.no_episodes')}</p>
         )}
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'motion/react';
 import { SkipForward, X } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface SkipIntroPromptProps {
   visible: boolean;
@@ -9,9 +10,8 @@ interface SkipIntroPromptProps {
   onDismiss: () => void;
 }
 
-// Floating "Skip Intro" pill for anime titles (OP/ED runs ~90s). Auto-surfaces
-// instead of hiding behind a small icon in the control deck.
 export default function SkipIntroPrompt({ visible, onSkip, onDismiss }: SkipIntroPromptProps) {
+  const { t } = useLanguage();
   return (
     <AnimatePresence>
       {visible && (
@@ -27,7 +27,7 @@ export default function SkipIntroPrompt({ visible, onSkip, onDismiss }: SkipIntr
             title="Skip Opening / Ending (90s)"
           >
             <SkipForward size={14} className="fill-current" />
-            <span>Skip Intro</span>
+            <span>{t('player.skip_intro')}</span>
           </button>
           <button
             onClick={onDismiss}

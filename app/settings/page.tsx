@@ -97,7 +97,7 @@ export default function SettingsPage() {
           <Link href="/">
             <button className="flex items-center space-x-1.5 px-4 py-2 bg-zinc-900 border border-zinc-850 rounded-none hover:border-[#E2B646] text-xs font-bold text-zinc-400 hover:text-white transition-all cursor-pointer">
               <ArrowLeft size={12} />
-              <span>Back Home</span>
+              <span>{t('fav.back')}</span>
             </button>
           </Link>
         </div>
@@ -133,15 +133,15 @@ export default function SettingsPage() {
         <div className="p-6 bg-black/40 border border-zinc-850 rounded-none space-y-6">
           <h2 className="font-serif font-black italic text-base text-white tracking-wide uppercase flex items-center space-x-2">
             <Play size={16} className="text-[#E2B646] fill-current" />
-            <span>Player Defaults Preset</span>
+            <span>{t('settings.player_defaults')}</span>
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
             {/* Auto Next Toggle */}
             <div className="flex items-center justify-between p-4 bg-zinc-900/40 border border-zinc-850 rounded-none">
               <div>
-                <h4 className="text-xs font-bold text-zinc-200">Episode Auto-Advance</h4>
-                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">Automatically advances to next episode on finish</p>
+                <h4 className="text-xs font-bold text-zinc-200">{t('settings.auto_advance')}</h4>
+                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">{t('settings.auto_advance_desc')}</p>
               </div>
               <button
                 onClick={handleAutoNextToggle}
@@ -160,8 +160,8 @@ export default function SettingsPage() {
             {/* Global Image sharpening boost trigger */}
             <div className="flex items-center justify-between p-4 bg-zinc-900/40 border border-zinc-850 rounded-none">
               <div>
-                <h4 className="text-xs font-bold text-zinc-200">Image Enhancer Overlay</h4>
-                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">Applies sharpening visual filter boost inside player</p>
+                <h4 className="text-xs font-bold text-zinc-200">{t('settings.image_enhancer')}</h4>
+                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">{t('settings.image_enhancer_desc')}</p>
               </div>
               <button
                 onClick={handleImageEnhanceToggle}
@@ -180,8 +180,8 @@ export default function SettingsPage() {
             {/* Playback rate presets */}
             <div className="col-span-1 md:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-zinc-900/40 border border-zinc-850 rounded-none gap-4">
               <div>
-                <h4 className="text-xs font-bold text-zinc-200">Playback Speed defaults</h4>
-                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">Sets active multiplier speed for beginning sessions</p>
+                <h4 className="text-xs font-bold text-zinc-200">{t('settings.playback_speed')}</h4>
+                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">{t('settings.playback_speed_desc')}</p>
               </div>
               <div className="flex gap-2">
                 {[0.5, 1, 1.25, 1.5, 2].map((rate) => (
@@ -206,7 +206,7 @@ export default function SettingsPage() {
         <div className="p-6 bg-black/40 border border-zinc-850 rounded-none space-y-6">
           <h2 className="font-serif font-black italic text-base text-white tracking-wide uppercase flex items-center space-x-2">
             <Heart size={16} className="text-[#E2B646] fill-current" />
-            <span>Customize Home Row Sorting</span>
+            <span>{t('settings.home_sorting')}</span>
           </h2>
           <p className="text-[11px] text-zinc-500 font-sans">
             Update your choices here. Selected categories generate prioritized rows on your homepage dashboard instantly.
@@ -215,7 +215,7 @@ export default function SettingsPage() {
           {loadingGenres ? (
             <div className="flex flex-col items-center justify-center py-10 space-y-3">
               <div className="w-8 h-8 border-t-2 border-r-2 border-[#E2B646] rounded-none animate-spin" />
-              <p className="text-[10px] text-zinc-600 font-mono">Syncing categories...</p>
+              <p className="text-[10px] text-zinc-600 font-mono">{t('settings.syncing_categories')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pt-2">

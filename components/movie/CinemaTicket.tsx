@@ -14,11 +14,10 @@ interface CinemaTicketProps {
   onWatchClick: () => void;
 }
 
-// Decorative cinema-ticket UI: perforation lines, stub, tear-off stamp animation.
 export default function CinemaTicket({ movie, isStamped, isTearing, resumeEpisode, onWatchClick }: CinemaTicketProps) {
   const { t } = useLanguage();
   const primaryGenre = movie.category?.[0]?.name || 'Cinema';
-  const imageUrl = resolveImageUrl(movie.thumb_url || movie.poster_url);
+  const imageUrl = resolveImageUrl(movie.poster_url || movie.thumb_url );
 
   return (
     <div className="relative w-full border border-zinc-800 bg-black/60 rounded-none overflow-hidden backdrop-blur-md shadow-xl flex flex-col md:flex-row h-auto md:h-[180px]">
@@ -40,7 +39,7 @@ export default function CinemaTicket({ movie, isStamped, isTearing, resumeEpisod
         )}
       </AnimatePresence>
 
-      {/* Left Half (QR + Poster Thumb stub) */}
+      {}
       <div className="p-4 flex items-center gap-4 bg-zinc-950/40 md:w-[220px] shrink-0 border-b md:border-b-0 border-zinc-850">
         <div className="relative aspect-[9/13] w-14 rounded-none overflow-hidden border border-zinc-800 flex-none bg-zinc-900">
           <PosterImage src={imageUrl} alt={movie.name} className="object-cover" referrerPolicy="no-referrer" iconSize={16} />
@@ -78,7 +77,7 @@ export default function CinemaTicket({ movie, isStamped, isTearing, resumeEpisod
         <div className="absolute left-[-8px] right-[-8px] top-0 bottom-0 ticket-perforation-h" />
       </div>
 
-      {/* Right Half (Movie details + Play Stub Button) */}
+      {}
       <div className="flex-1 p-5 flex flex-col justify-between relative bg-zinc-900/10 min-w-0">
         <div className="space-y-1.5 min-w-0">
           <div className="flex items-center gap-2">

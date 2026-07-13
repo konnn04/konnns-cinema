@@ -11,6 +11,12 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.4.0
         version: 5.4.0(react-hook-form@7.81.0(react@19.2.7))
+      '@websr/websr':
+        specifier: ^0.0.16
+        version: 0.0.16
+      anime4k-webgpu:
+        specifier: ^1.0.0
+        version: 1.0.0(@webgpu/types@0.1.71)
       autoprefixer:
         specifier: ^10.5.2
         version: 10.5.2(postcss@8.5.19)
@@ -63,6 +69,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.2.3
         version: 19.2.3(@types/react@19.2.17)
+      '@webgpu/types':
+        specifier: ^0.1.71
+        version: 0.1.71
       eslint:
         specifier: 9.39.1
         version: 9.39.1(jiti@2.7.0)
@@ -1094,6 +1103,12 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@webgpu/types@0.1.71':
+    resolution: {integrity: sha512-mMy8/ODcKhab808co15eW+yN+HgXoQxRQHTiBV9Mrvl1r0ufnid7YOcI+gi4eUWSWl9ezD6TW2KXccrL8HCh2A==}
+
+  '@websr/websr@0.0.16':
+    resolution: {integrity: sha512-qn2fmcAMLqy0iD9+VtQ77WB+4gZs+cXLd1nmbWvCfPmbh1iQdyX2M+23bWGY2qjY572pg5cTH+u5UmJEzH1mWw==}
+
   abbrev@5.0.0:
     resolution: {integrity: sha512-/XrFJgzQQQHpti1raDJC6m4ws6aNktmjBlhk8Fdlk7LwCEuDoieEJJY9OFHjfiFJFFRM2tK+Ky/IsfbbmlMu1w==}
     engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
@@ -1145,6 +1160,11 @@ packages:
 
   ajv@8.20.0:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
+
+  anime4k-webgpu@1.0.0:
+    resolution: {integrity: sha512-syZZyDRHYukFnDLxdES4AuMHzKwxlu5Lo52yhEEc1hwKQmvza8DGC62/VDPrrWOu4KArU5jh/0yFJQBwetGuxg==}
+    peerDependencies:
+      '@webgpu/types': ^0.1.38
 
   ansi-align@3.0.1:
     resolution: {integrity: sha512-IOfwwBF5iczOjp/WeY4YxyjqAFMQoZufdQWDd19SEExbVLNXqvpzSJ/M7Za4/sCPmQ0+GRquoA7bGcINcxew6w==}
@@ -5168,6 +5188,10 @@ snapshots:
   '@unrs/resolver-binding-win32-x64-msvc@1.12.2':
     optional: true
 
+  '@webgpu/types@0.1.71': {}
+
+  '@websr/websr@0.0.16': {}
+
   abbrev@5.0.0:
     optional: true
 
@@ -5214,6 +5238,10 @@ snapshots:
       fast-uri: 3.1.3
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
+
+  anime4k-webgpu@1.0.0(@webgpu/types@0.1.71):
+    dependencies:
+      '@webgpu/types': 0.1.71
 
   ansi-align@3.0.1:
     dependencies:

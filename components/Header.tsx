@@ -28,11 +28,12 @@ function HeaderContent() {
       <div className="max-w-7xl mx-auto px-4 sm:px-8 md:px-12 flex items-center justify-between gap-4">
         {}
         <Link href="/" className="flex items-center space-x-2 flex-none">
-          <Image 
+          <Image
             src="/logo.png"
             width={98}
             height={98}
-            alt='Konnn&gt;s Cinema'
+            alt="Konnn's Cinema"
+            className="h-9 w-auto"
           />
         </Link>
 

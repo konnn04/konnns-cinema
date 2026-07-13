@@ -3,8 +3,10 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const { t } = useLanguage();
   useEffect(() => {
     console.error('Unhandled route error:', error);
   }, [error]);
@@ -33,12 +35,12 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
             className="flex items-center space-x-2 px-6 py-3 bg-[#E2B646] text-black rounded-none text-xs font-serif font-black tracking-widest uppercase hover:bg-white transition-all cursor-pointer"
           >
             <RefreshCw size={14} />
-            <span>Thử Lại</span>
+            <span>{t('error.retry')}</span>
           </button>
           <Link href="/">
             <button className="flex items-center space-x-2 px-6 py-3 bg-zinc-900 border border-zinc-850 rounded-none text-xs font-bold tracking-widest uppercase text-zinc-400 hover:text-white hover:border-[#E2B646] transition-all cursor-pointer">
               <Home size={14} />
-              <span>Về Trang Chủ</span>
+              <span>{t('error.back_home')}</span>
             </button>
           </Link>
         </div>
