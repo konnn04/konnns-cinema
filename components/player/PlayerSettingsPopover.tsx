@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Settings } from 'lucide-react';
+import BetaLabSection from './BetaLabSection';
 
 const SPEEDS = [0.5, 1, 1.25, 1.5, 2];
 
@@ -11,9 +12,16 @@ interface PlayerSettingsPopoverProps {
   onToggleSharpen: () => void;
   playbackRate: number;
   onSetRate: (rate: number) => void;
+  webgpuSupported: boolean;
+  fsrError: string | null;
+  frameInterpolationError: string | null;
+  audioError: string | null;
 }
 
-export default function PlayerSettingsPopover({ isSharpenEnabled, onToggleSharpen, playbackRate, onSetRate }: PlayerSettingsPopoverProps) {
+export default function PlayerSettingsPopover({
+  isSharpenEnabled, onToggleSharpen, playbackRate, onSetRate,
+  webgpuSupported, fsrError, frameInterpolationError, audioError,
+}: PlayerSettingsPopoverProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -43,7 +51,7 @@ export default function PlayerSettingsPopover({ isSharpenEnabled, onToggleSharpe
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="absolute bottom-full right-0 mb-2 w-56 bg-zinc-950 border border-zinc-900 rounded-none p-3.5 shadow-2xl z-30 space-y-4 text-left"
+            className="absolute bottom-full right-0 mb-2 w-64 max-h-[80vh] overflow-y-auto no-scrollbar bg-zinc-950 border border-zinc-900 rounded-none p-3.5 shadow-2xl z-30 space-y-4 text-left"
           >
             <div className="text-[9px] uppercase font-mono tracking-widest text-zinc-500 border-b border-zinc-900 pb-2 flex justify-between items-center">
               <span>PLAYBACK SETTINGS</span>
@@ -89,6 +97,13 @@ export default function PlayerSettingsPopover({ isSharpenEnabled, onToggleSharpe
                 ))}
               </div>
             </div>
+
+            <BetaLabSection
+              webgpuSupported={webgpuSupported}
+              fsrError={fsrError}
+              frameInterpolationError={frameInterpolationError}
+              audioError={audioError}
+            />
           </motion.div>
         )}
       </AnimatePresence>

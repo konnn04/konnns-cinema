@@ -7,12 +7,14 @@ import { isAdultMovie } from '@/lib/adult';
 import { useWatchHistoryStore } from '@/lib/stores/useWatchHistoryStore';
 import { useAdultContentStore } from '@/lib/stores/useAdultContentStore';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { useLanguage } from '@/hooks/useLanguage';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MobileNav from '@/components/MobileNav';
 import PosterImage from '@/components/PosterImage';
 
 export default function HistoryPage() {
+  const { t } = useLanguage();
   const history = useWatchHistoryStore((s) => s.history);
   const removeFromHistory = useWatchHistoryStore((s) => s.remove);
   const clearHistory = useWatchHistoryStore((s) => s.clear);
@@ -43,7 +45,7 @@ export default function HistoryPage() {
           <div className="flex items-center space-x-3">
             <History className="text-[#E2B646] w-6 h-6 animate-pulse" />
             <h1 className="font-serif font-black italic text-2xl sm:text-3xl tracking-tight text-white uppercase">
-              Continue Watching
+              {t('history.title')}
             </h1>
           </div>
           
@@ -158,12 +160,12 @@ export default function HistoryPage() {
           <div className="text-center py-32 space-y-4">
             <History className="w-12 h-12 text-[#E2B646] mx-auto animate-pulse" />
             <div>
-              <h4 className="font-serif font-black italic text-lg text-white">No Watch History Captured</h4>
-              <p className="text-xs text-zinc-600 font-sans mt-1">Streaming sessions you begin commence here for easy recovery</p>
+              <h4 className="font-serif font-black italic text-lg text-white">{t('history.empty')}</h4>
+              <p className="text-xs text-zinc-600 font-sans mt-1">{t('history.empty_desc')}</p>
             </div>
             <Link href="/search">
               <button className="px-6 py-2.5 bg-[#E2B646] text-black rounded-none text-xs font-serif font-black tracking-widest uppercase hover:bg-white transition-all cursor-pointer">
-                Explore Catalog
+                {t('fav.explore')}
               </button>
             </Link>
           </div>

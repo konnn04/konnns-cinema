@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ServerEpisode } from '@/lib/api';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface StreamSidebarProps {
   episodes: ServerEpisode[];
@@ -12,13 +13,14 @@ interface StreamSidebarProps {
 }
 
 export default function StreamSidebar({ episodes, activeServerIdx, onServerChange, slug, episodeSlug }: StreamSidebarProps) {
+  const { t } = useLanguage();
   const activeServerData = episodes[activeServerIdx]?.server_data;
 
   return (
     <div className="col-span-1 lg:col-span-4 space-y-6">
       {episodes.length > 0 && (
         <div className="space-y-3">
-          <span className="text-[10px] uppercase font-serif tracking-[0.2em] font-bold text-[#E2B646]">Streaming node</span>
+          <span className="text-[10px] uppercase font-serif tracking-[0.2em] font-bold text-[#E2B646]">{t('watch.server_label')}</span>
           <div className="grid grid-cols-2 gap-2">
             {episodes.map((server, idx) => (
               <button

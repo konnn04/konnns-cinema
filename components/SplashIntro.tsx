@@ -63,8 +63,8 @@ export default function SplashIntro({ onComplete }: SplashIntroProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (typeof window !== 'undefined') {
-        const seen = sessionStorage.getItem('splash_seen');
-        if (seen === 'true') {
+        const completed = localStorage.getItem('splash_completed');
+        if (completed === 'true') {
           setVisible(false);
           onComplete();
         }
@@ -89,7 +89,7 @@ export default function SplashIntro({ onComplete }: SplashIntroProps) {
     setHasStarted(true);
     setTimeout(() => {
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem('splash_seen', 'true');
+        localStorage.setItem('splash_completed', 'true');
       }
       setVisible(false);
       onComplete();
@@ -134,13 +134,8 @@ export default function SplashIntro({ onComplete }: SplashIntroProps) {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 1, ease: 'easeOut' }}
-              className="mb-8 relative p-8 border border-zinc-800/60 rounded-3xl bg-zinc-900/30 backdrop-blur-md glow-red-orange"
+              className="mb-8 relative p-8"
             >
-              <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-brand-orange" />
-              <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-brand-orange" />
-              <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-brand-orange" />
-              <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-brand-orange" />
-
               <span className="font-sans text-[10px] tracking-[0.4em] uppercase text-zinc-500 mb-2 block">
                 {t('splash.welcome')}
               </span>
@@ -161,9 +156,7 @@ export default function SplashIntro({ onComplete }: SplashIntroProps) {
               transition={{ delay: 0.6, duration: 0.8 }}
               className="text-zinc-400 font-sans text-sm tracking-wider max-w-sm mb-12"
             >
-              {language === 'vi' 
-                ? 'Đắm chìm trong thế giới truyền tải điện ảnh chất lượng cao, thiết kế độc quyền dành riêng cho tín đồ phim ảnh.'
-                : 'Immerse yourself in a curated, high-definition streaming space designed for movie enthusiasts.'}
+              {t('splash.description')}
             </motion.p>
 
             {}
@@ -204,7 +197,7 @@ export default function SplashIntro({ onComplete }: SplashIntroProps) {
               className="group relative flex items-center justify-center space-x-3 px-8 py-4 bg-gradient-to-r from-brand-red to-[#E2B646] rounded-none text-black font-outfit text-sm font-black tracking-wider uppercase shadow-xl hover:shadow-[#E2B646]/20 hover:glow-red-orange transition-all cursor-pointer"
             >
               <Sparkles size={16} className="text-black animate-pulse" />
-              <span>{language === 'vi' ? 'Nhấp Để Bắt Đầu Trải Nghiệm' : 'Click to Start Experience'}</span>
+              <span>{t('splash.start_button')}</span>
               <Play size={14} className="fill-current text-black transition-transform group-hover:translate-x-1" />
             </motion.button>
           </div>

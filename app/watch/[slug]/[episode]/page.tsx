@@ -7,6 +7,8 @@ import Hls from 'hls.js';
 import { motion, AnimatePresence } from 'motion/react';
 import { api, MovieDetail, ServerEpisode, ServerData } from '@/lib/api';
 import { isAdultMovie, isAdultVerified, setAdultVerified } from '@/lib/adult';
+import { searchAnime, AnimeInfo, translateAnimeStatus, translateAnimeFormat, formatNextAiringTime } from '@/lib/anime';
+import { useLanguage } from '@/hooks/useLanguage';
 import { useWatchHistoryStore } from '@/lib/stores/useWatchHistoryStore';
 import { useVideoPlayer } from '@/hooks/useVideoPlayer';
 import Header from '@/components/Header';
@@ -28,6 +30,7 @@ const ANIME_SKIP_SECONDS = 90;
 const ANIME_INTRO_WINDOW_SECONDS = 100;
 
 export default function WatchPage({ params }: WatchPageProps) {
+  const { t, language } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { slug, episode: episodeSlug } = use(params);
@@ -36,6 +39,7 @@ export default function WatchPage({ params }: WatchPageProps) {
 
   const [movie, setMovie] = useState<MovieDetail | null>(null);
   const [episodes, setEpisodes] = useState<ServerEpisode[]>([]);
+  const [animeInfo, setAnimeInfo] = useState<AnimeInfo | null>(null);
   const [activeServerIdx, setActiveServerIdx] = useState(initialServerIdx);
   const [currentEpisode, setCurrentEpisode] = useState<ServerData | null>(null);
   const [nextEpisode, setNextEpisode] = useState<ServerData | null>(null);
@@ -83,6 +87,10 @@ export default function WatchPage({ params }: WatchPageProps) {
           setMovie(res.movie);
           const serverEpisodes = res.episodes || [];
           setEpisodes(serverEpisodes);
+
+          if (res.movie.type === 'hoathinh' && res.movie.origin_name) {
+            searchAnime(res.movie.origin_name).then(setAnimeInfo);
+          }
 
           const activeServer = serverEpisodes[activeServerIdx] || serverEpisodes[0];
           if (activeServer && activeServer.server_data) {
@@ -435,6 +443,37 @@ export default function WatchPage({ params }: WatchPageProps) {
                   </span>
                 )}
               </div>
+
+              {/* Anime Info from AniList */}
+              {animeInfo && (
+                <div className="flex flex-wrap gap-3 pb-3 border-b border-zinc-900">
+                  {animeInfo.episodes != null && (
+                    <span className="px-2 py-1 bg-zinc-950/60 border border-zinc-800 text-[10px] font-mono text-zinc-300">
+                      {t('anime.episodes')}: <strong>{animeInfo.episodes > 0 ? animeInfo.episodes : '?'}</strong>
+                    </span>
+                  )}
+                  {animeInfo.status && (
+                    <span className="px-2 py-1 bg-zinc-950/60 border border-zinc-800 text-[10px] font-mono text-zinc-300">
+                      {t('anime.status')}: <strong>{translateAnimeStatus(animeInfo.status, language)}</strong>
+                    </span>
+                  )}
+                  {animeInfo.averageScore != null && (
+                    <span className="px-2 py-1 bg-zinc-950/60 border border-zinc-800 text-[10px] font-mono text-[#E2B646]">
+                      {t('anime.score')}: <strong>{animeInfo.averageScore}%</strong>
+                    </span>
+                  )}
+                  {animeInfo.studios.length > 0 && (
+                    <span className="px-2 py-1 bg-zinc-950/60 border border-zinc-800 text-[10px] font-mono text-zinc-300">
+                      {t('anime.studio')}: <strong>{animeInfo.studios[0]}</strong>
+                    </span>
+                  )}
+                  {animeInfo.nextAiringEpisode && (
+                    <span className="px-2 py-1 bg-zinc-950/60 border border-[#E2B646]/20 text-[10px] font-mono text-[#E2B646]">
+                      {t('anime.next_episode')} #{animeInfo.nextAiringEpisode.episode} &mdash; {formatNextAiringTime(animeInfo.nextAiringEpisode.airingAt, language)}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {movie?.content && (
                 <MovieSynopsis

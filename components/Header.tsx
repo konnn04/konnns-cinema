@@ -32,7 +32,7 @@ function HeaderContent() {
             src="/logo.png"
             width={98}
             height={98}
-            alt='Konnn&gt;s Cinema'
+            alt="Konnn's Cinema"
           />
         </Link>
 

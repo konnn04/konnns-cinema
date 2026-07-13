@@ -1,4 +1,5 @@
 import { ServerEpisode } from '@/lib/api';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface EpisodeGridProps {
   episodes: ServerEpisode[];
@@ -9,6 +10,7 @@ interface EpisodeGridProps {
 }
 
 export default function EpisodeGrid({ episodes, activeServerIdx, onServerChange, activeEpisodeSlug, onEpisodeClick }: EpisodeGridProps) {
+  const { t } = useLanguage();
   const activeServerData = episodes[activeServerIdx]?.server_data;
 
   return (
@@ -16,9 +18,9 @@ export default function EpisodeGrid({ episodes, activeServerIdx, onServerChange,
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h3 className="font-serif font-black text-xl tracking-wide text-[#E2B646] uppercase italic">
-            Streaming Nodes
+            {t('episode.server_list')}
           </h3>
-          <p className="text-[11px] text-zinc-550 font-sans mt-0.5">Choose server then select desired episode index below</p>
+          <p className="text-[11px] text-zinc-550 font-sans mt-0.5">{t('episode.select_server')}</p>
         </div>
 
         <div className="flex flex-wrap gap-2">

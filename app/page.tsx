@@ -18,7 +18,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 export default function HomePage() {
   const { t, language, translateGenre, translateMovieTitle } = useLanguage();
   
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
 
@@ -35,9 +35,8 @@ export default function HomePage() {
   const loadAllMovieData = useCallback(async () => {
     setLoading(true);
     try {
-      const recent = await api.getRecentlyUpdated(1);
-      setRecentlyUpdated(recent.items);
-      setFeaturedMovies(recent.items.slice(0, 5));
+      const favoriteGenres = usePreferencesStore.getState().favoriteGenres;
+      const primaryGenreSlug = favoriteGenres.length > 0 ? favoriteGenres[0] : null;
 
       const [movies, series, anime] = await Promise.all([
         api.getMoviesByType('phim-le', 1),
@@ -49,28 +48,48 @@ export default function HomePage() {
       setSeriesList(series.items);
       setAnimeList(anime.items);
 
-      const favoriteGenres = usePreferencesStore.getState().favoriteGenres;
-      if (favoriteGenres.length > 0) {
-        const primaryGenreSlug = favoriteGenres[0];
-        const personalizedLabel = language === 'vi' ? 'Dành Cho Bạn' : 'Personalized';
+      // Hero section: show movies based on favorite genre, fallback to recently updated
+      if (primaryGenreSlug === ANIME_PSEUDO_GENRE.slug) {
+        setFeaturedMovies(anime.items.slice(0, 5));
+      } else if (primaryGenreSlug) {
+        try {
+          const genreMovies = await api.getMoviesByGenre(primaryGenreSlug, 1);
+          setFeaturedMovies(genreMovies.items.slice(0, 5));
+        } catch {
+          const recent = await api.getRecentlyUpdated(1);
+          setFeaturedMovies(recent.items.slice(0, 5));
+        }
+      } else {
+        const recent = await api.getRecentlyUpdated(1);
+        setFeaturedMovies(recent.items.slice(0, 5));
+      }
+
+      // Recently updated row (always loaded for non-hero display)
+      const recent = await api.getRecentlyUpdated(1);
+      setRecentlyUpdated(recent.items);
+
+      // Personalized row below hero
+      if (primaryGenreSlug) {
+        const personalizedLabel = t('home.personalized');
 
         if (primaryGenreSlug === ANIME_PSEUDO_GENRE.slug) {
-          const animeMovies = await api.getMoviesByType('hoat-hinh', 1);
           setPersonalizedRow({
             title: `${personalizedLabel}: ${translateGenre(ANIME_PSEUDO_GENRE.name)}`,
-            items: animeMovies.items,
+            items: anime.items,
           });
         } else {
-          const genreMovies = await api.getMoviesByGenre(primaryGenreSlug, 1);
-
-          const allGenres = await api.getGenres();
-          const genreObj = allGenres.find(g => g.slug === primaryGenreSlug);
-          const title = genreObj ? `${personalizedLabel}: ${translateGenre(genreObj.name)}` : `${personalizedLabel}: ${primaryGenreSlug}`;
-
-          setPersonalizedRow({
-            title,
-            items: genreMovies.items,
-          });
+          try {
+            const genreMovies = await api.getMoviesByGenre(primaryGenreSlug, 1);
+            const allGenres = await api.getGenres();
+            const genreObj = allGenres.find(g => g.slug === primaryGenreSlug);
+            const title = genreObj ? `${personalizedLabel}: ${translateGenre(genreObj.name)}` : `${personalizedLabel}: ${primaryGenreSlug}`;
+            setPersonalizedRow({
+              title,
+              items: genreMovies.items,
+            });
+          } catch {
+            // silently skip personalized row on error
+          }
         }
       }
     } catch (err) {
@@ -85,31 +104,33 @@ export default function HomePage() {
     loadAllMovieData();
   }, [loadAllMovieData]);
 
-  const checkOnboarding = useCallback(() => {
-    if (usePreferencesStore.getState().onboardingCompleted) {
-      revealDashboard();
-    } else {
-      setShowOnboarding(true);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const splashCompleted = localStorage.getItem('splash_completed') === 'true';
+      const onboardingDone = usePreferencesStore.getState().onboardingCompleted;
+
+      if (onboardingDone && splashCompleted) {
+        revealDashboard();
+      } else if (!splashCompleted) {
+        setShowSplash(true);
+      } else {
+        setShowOnboarding(true);
+      }
     }
   }, [revealDashboard]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const splashSeen = sessionStorage.getItem('splash_seen');
-      if (splashSeen === 'true') {
-        const timer = setTimeout(() => {
-          setShowSplash(false);
-          checkOnboarding();
-        }, 0);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [checkOnboarding]);
-
   const handleSplashComplete = useCallback(() => {
     setShowSplash(false);
-    checkOnboarding();
-  }, [checkOnboarding]);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('splash_completed', 'true');
+    }
+    const onboardingDone = usePreferencesStore.getState().onboardingCompleted;
+    if (!onboardingDone) {
+      setShowOnboarding(true);
+    } else {
+      revealDashboard();
+    }
+  }, [revealDashboard]);
 
   const handleOnboardingComplete = useCallback(() => {
     setShowOnboarding(false);
@@ -231,9 +252,7 @@ export default function HomePage() {
                         </h1>
 
                         <p className="font-sans text-xs sm:text-sm text-zinc-300 font-medium select-text drop-shadow max-w-xl line-clamp-3 leading-relaxed">
-                          {activeHero.origin_name} &bull; {language === 'vi' 
-                            ? 'Khám phá tác phẩm điện ảnh đặc sắc được tuyển chọn trên Konnn\'s Cinema. Danh sách đầy đủ các máy chủ tốc độ cao và tùy chọn phụ đề đã sẵn sàng để phát sóng trực tiếp ngay.'
-                            : 'Explore this featured cinematic masterpiece on Konnn\'s Cinema. Complete list of high-speed servers and subtitle options is ready for immediate streaming.'}
+                          {activeHero.origin_name} &bull; {t('home.hero_desc')}
                         </p>
 
                         {}
