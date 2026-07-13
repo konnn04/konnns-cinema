@@ -366,7 +366,8 @@ export function useFrameInterpolation({ videoRef, canvasRef, enabled, onFatalErr
       setError('This browser does not support WebGPU.');
       return;
     }
-    setEnabled(next);
+    // `enabled` is a controlled prop from the parent — the parent is
+    // responsible for flipping it via BetaLabSection's callbacks.
   }, [isSupported]);
 
   return { enabled, toggle, isSupported, error };

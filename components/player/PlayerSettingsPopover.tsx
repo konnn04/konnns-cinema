@@ -12,15 +12,15 @@ interface PlayerSettingsPopoverProps {
   onToggleSharpen: () => void;
   playbackRate: number;
   onSetRate: (rate: number) => void;
-  webgpuSupported: boolean;
-  fsrError: string | null;
-  frameInterpolationError: string | null;
-  audioError: string | null;
+  webgpuSupported?: boolean;
+  fsrError?: string | null;
+  frameInterpolationError?: string | null;
+  audioError?: string | null;
 }
 
 export default function PlayerSettingsPopover({
   isSharpenEnabled, onToggleSharpen, playbackRate, onSetRate,
-  webgpuSupported, fsrError, frameInterpolationError, audioError,
+  webgpuSupported = false, fsrError = null, frameInterpolationError = null, audioError = null,
 }: PlayerSettingsPopoverProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
