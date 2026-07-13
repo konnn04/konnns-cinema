@@ -1,6 +1,7 @@
 <div align="center">
   <br/>
-  <h1>🎬 Konnn's Cinema</h1>
+  <img height=120 src="/public/logo.png">
+  <h1> Konnn's Cinema</h1>
   <p>
     <strong>A modern, self-hosted movie streaming platform built with Next.js</strong>
   </p>
@@ -18,17 +19,17 @@
 
 ## ✨ Features
 
-- 🎥 **Stream movies & series** — Powered by [KKPhim API](https://phimapi.com) with multiple server sources
-- 🌐 **Bilingual UI** — Full Vietnamese & English support with hot-switchable translations
-- 📺 **Adaptive player** — HLS streaming, Picture-in-Picture, keyboard shortcuts, playback speed control
-- 📚 **Watch history** — Auto-saves progress across sessions via Zustand + localStorage
-- ❤️ **Favorites board** — Pin movies for quick access
-- 🎬 **Anime metadata** — Auto-fetches episode counts, scores, studios & airing schedules from [AniList](https://anilist.co)
-- 🔍 **Advanced search** — Filter by genre, country, year with multiple sort modes
-- 📱 **Responsive** — Mobile-first design with bottom navigation
-- 🎨 **Cinematic UI** — Dark theme, smooth animations (Motion), custom scrollbars
-- 🔒 **Adult content gate** — Optional age verification for mature titles
-- 🧪 **Experimental WebGPU** — Frame interpolation & upscaling (beta)
+- **Stream movies & series** — Powered by [KKPhim API](https://phimapi.com) with multiple server sources
+- **Bilingual UI** — Full Vietnamese & English support with hot-switchable translations
+- **Adaptive player** — HLS streaming, Picture-in-Picture, keyboard shortcuts, playback speed control
+- **Watch history** — Auto-saves progress across sessions via Zustand + localStorage
+- **Favorites board** — Pin movies for quick access
+- **Anime metadata** — Auto-fetches episode counts, scores, studios & airing schedules from [AniList](https://anilist.co)
+- **Advanced search** — Filter by genre, country, year with multiple sort modes
+- **Responsive** — Mobile-first design with bottom navigation
+- **Cinematic UI** — Dark theme, smooth animations (Motion), custom scrollbars
+- **Adult content gate** — Optional age verification for mature titles
+- **Experimental WebGPU** — Frame interpolation & upscaling (beta)
 
 ## 🚀 Tech Stack
 
