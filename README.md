@@ -1,6 +1,7 @@
 <div align="center">
   <br/>
-  <h1>🎬 Konnn's Cinema</h1>
+  <img height=120 src="/public/logo.png">
+  <h1> Konnn's Cinema</h1>
   <p>
     <strong>A modern, self-hosted movie streaming platform built with Next.js</strong>
   </p>
@@ -14,28 +15,26 @@
     <img alt="Firebase" src="https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black"/>
   </p>
   <br/>
+
 </div>
 
 ---
 
 ## ✨ Features
 
-- 🎥 **Stream movies & series** — Powered by [KKPhim API](https://phimapi.com) with multiple server sources
-- 👥 **Watch Together** — Real-time synchronized viewing with friends via Firebase (chat, reactions, playback sync)
-- 🌐 **Bilingual UI** — Full Vietnamese & English support with hot-switchable translations (JSON-based i18n)
-- 📺 **Adaptive player** — HLS streaming, Picture-in-Picture, keyboard shortcuts, playback speed, theater mode
-- 📚 **Watch history** — Auto-saves progress across sessions via Zustand + localStorage
-- ❤️ **Favorites board** — Pin movies for quick access
-- 🎬 **Anime metadata** — Auto-fetches episode counts, scores, studios & airing schedules from [AniList](https://anilist.co)
-- 🔍 **Advanced search** — Filter by genre, country, year with multiple sort modes
-- 📱 **Responsive** — Mobile-first design with bottom navigation
-- 🎨 **Cinematic UI** — Dark theme, smooth animations (Motion), custom scrollbars, ticket-styled design
-- 🔒 **Adult content gate** — Optional age verification for mature titles
-- 🧪 **Experimental WebGPU** — Frame interpolation & FSR upscaling (beta)
-- 🔔 **Toast notifications** — Custom toast system with color-coded states (success/error/warning/info) + confirm dialogs
-- 🖼️ **Dynamic OG images** — Auto-generated ticket-style share images per movie via `next/og`
-- ⚙️ **White-label ready** — Centralized `lib/constants.ts` for site name, SEO, and branding
-- 🔎 **SEO optimized** — Dynamic metadata per page, sitemap, robots.txt, `generateMetadata` for SSR
+- **Stream movies & series** — Powered by [KKPhim API](https://phimapi.com) with multiple server sources
+- **Watch Together** — Real-time synchronized viewing with friends via Firebase (chat, reactions, playback sync)
+- **Bilingual UI** — Full Vietnamese & English support with hot-switchable translations (JSON-based i18n)
+- **Adaptive player** — HLS streaming, Picture-in-Picture, keyboard shortcuts, playback speed, theater mode
+- **Watch history** — Auto-saves progress across sessions via Zustand + localStorage
+- **Favorites board** — Pin movies for quick access
+- **Anime metadata** — Auto-fetches episode counts, scores, studios & airing schedules from [AniList](https://anilist.co)
+- **Advanced search** — Filter by genre, country, year with multiple sort modes
+- **Cinematic UI** — Dark theme, smooth animations (Motion), custom scrollbars, ticket-styled design
+- **Adult content gate** — Optional age verification for mature titles
+- **Experimental WebGPU** — Frame interpolation & FSR upscaling (beta)
+- **Dynamic OG images** — Auto-generated ticket-style share images per movie via `next/og`
+- **White-label ready** — Centralized `lib/constants.ts` for site name, SEO, and branding
 
 ## 🚀 Tech Stack
 
