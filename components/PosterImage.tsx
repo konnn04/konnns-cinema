@@ -1,18 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import Image, { ImageProps } from 'next/image';
 import { Film } from 'lucide-react';
 
-interface PosterImageProps extends Omit<ImageProps, 'onError' | 'src' | 'fill'> {
+interface PosterImageProps {
   src: string;
+  alt: string;
+  className?: string;
   iconSize?: number;
+  priority?: boolean;
+  sizes?: string;
+  referrerPolicy?: React.HTMLAttributeReferrerPolicy;
 }
 
-// Movie posters/thumbnails from the upstream CDN 404 fairly often. Falls back
-// to a themed placeholder instead of a broken-image icon (or skipping the
-// network fallback entirely when there's no src at all).
-export default function PosterImage({ src, alt, className, iconSize = 28, ...rest }: PosterImageProps) {
+export default function PosterImage({ src, alt, className, iconSize = 28, priority, sizes, referrerPolicy }: PosterImageProps) {
   const [failed, setFailed] = useState(false);
 
   if (!src || failed) {
@@ -24,13 +25,15 @@ export default function PosterImage({ src, alt, className, iconSize = 28, ...res
   }
 
   return (
-    <Image
+    <img
       src={src}
       alt={alt}
-      fill
       className={className}
+      referrerPolicy={referrerPolicy}
+      sizes={sizes}
+      loading={priority ? 'eager' : 'lazy'}
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
       onError={() => setFailed(true)}
-      {...rest}
     />
   );
 }

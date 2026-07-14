@@ -12,6 +12,7 @@ import { useFavoritesStore } from '@/lib/stores/useFavoritesStore';
 import { useReminderStore } from '@/lib/stores/useReminderStore';
 import { useWatchHistoryStore } from '@/lib/stores/useWatchHistoryStore';
 import { useLanguage } from '@/hooks/useLanguage';
+import { toast } from '@/lib/toast';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MobileNav from '@/components/MobileNav';
@@ -161,7 +162,7 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
   const handleShare = () => {
     if (typeof window !== 'undefined') {
       navigator.clipboard.writeText(window.location.href);
-      alert('Movie link copied to clipboard!');
+      toast.success('Movie link copied to clipboard!');
     }
   };
 
