@@ -20,7 +20,7 @@ import {
 import type { ChatMessage, EpisodeChange, Room, RoomMember } from '@/lib/watchParty/types';
 
 interface WatchPartyActions {
-  createRoom: (movieSlug: string, episodeSlug: string, nickname: string) => void;
+  createRoom: (movieSlug: string, episodeSlug: string, nickname: string, initialPlayback?: { isPlaying: boolean; currentTime: number }) => void;
   joinRoom: (code: string, nickname: string) => void;
   leaveRoom: () => void;
   setNickname: (nickname: string) => void;
@@ -318,7 +318,7 @@ export function WatchPartyProvider({ children }: { children: React.ReactNode }) 
   }, [authIsAnonymous]);
 
   const actions: WatchPartyActions = {
-    createRoom: (movieSlug, episodeSlug, nickname) => {
+    createRoom: (movieSlug, episodeSlug, nickname, initialPlayback) => {
       (async () => {
         try {
           const uid = await requireUid();
@@ -329,12 +329,19 @@ export function WatchPartyProvider({ children }: { children: React.ReactNode }) 
             movieSlug, episodeSlug, hostUid: uid, allowMemberControl: false,
             createdAt: now, emptySince: null,
             members: { [uid]: { nickname: sanitizeNickname(nickname), joinedAt: now, online: true, disconnectedAt: null, verified: isVerified() } },
-            // Must be serverTimestamp(), not a client Date.now() -- the
-            // security rule for playback/updatedAt requires the write to
+            // Seeded from the host's actual current position, not a hardcoded
+            // 0 -- the playback sync effect applies to every client
+            // (including the host) now, so a stale 0 default would yank the
+            // host's own video back to the start the moment the room's
+            // created. Must be serverTimestamp(), not a client Date.now() --
+            // the security rule for playback/updatedAt requires the write to
             // equal the *server's* now, which only a serverTimestamp()
-            // placeholder resolves to. A plain client number here made every
-            // room creation fail the room's own validate rule.
-            playback: { isPlaying: false, currentTime: 0, updatedAt: serverTimestamp() as unknown as number },
+            // placeholder resolves to.
+            playback: {
+              isPlaying: initialPlayback?.isPlaying ?? false,
+              currentTime: initialPlayback?.currentTime ?? 0,
+              updatedAt: serverTimestamp() as unknown as number,
+            },
           };
 
           let code = generateRoomCode();

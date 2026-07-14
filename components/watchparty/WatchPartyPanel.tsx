@@ -16,9 +16,13 @@ interface WatchPartyPanelProps {
   movieSlug: string;
   episodeSlug: string;
   initialJoinCode?: string;
+  // Current player position, so creating a room seeds the room's playback
+  // state with where the host actually is instead of defaulting to 0.
+  currentTime?: number;
+  isPlaying?: boolean;
 }
 
-export default function WatchPartyPanel({ movieSlug, episodeSlug, initialJoinCode }: WatchPartyPanelProps) {
+export default function WatchPartyPanel({ movieSlug, episodeSlug, initialJoinCode, currentTime, isPlaying }: WatchPartyPanelProps) {
   const { t } = useLanguage();
   const pathname = usePathname();
   const party = useWatchParty();
@@ -45,7 +49,7 @@ export default function WatchPartyPanel({ movieSlug, episodeSlug, initialJoinCod
   const confirmNickname = (value: string) => {
     setNicknamePref(value);
     if (pendingAction === 'create') {
-      party.createRoom(movieSlug, episodeSlug, value);
+      party.createRoom(movieSlug, episodeSlug, value, { isPlaying: !!isPlaying, currentTime: currentTime ?? 0 });
     } else if (pendingAction === 'join') {
       party.joinRoom(normalizeRoomCode(joinCodeInput), value);
     }
@@ -54,7 +58,7 @@ export default function WatchPartyPanel({ movieSlug, episodeSlug, initialJoinCod
 
   const handleCreate = () => {
     if (!nickname) { setPendingAction('create'); return; }
-    party.createRoom(movieSlug, episodeSlug, nickname);
+    party.createRoom(movieSlug, episodeSlug, nickname, { isPlaying: !!isPlaying, currentTime: currentTime ?? 0 });
   };
 
   const handleJoin = () => {

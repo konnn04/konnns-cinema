@@ -736,7 +736,13 @@ export default function WatchPage({ params }: WatchPageProps) {
           </div>
 
           <div className="col-span-1 lg:col-span-4 space-y-6">
-            <WatchPartyToggle movieSlug={slug} episodeSlug={episodeSlug} initialJoinCode={autoJoinCode} />
+            <WatchPartyToggle
+              movieSlug={slug}
+              episodeSlug={episodeSlug}
+              initialJoinCode={autoJoinCode}
+              currentTime={player.currentTime}
+              isPlaying={player.isPlaying}
+            />
 
             <StreamSidebar
               episodes={episodes}

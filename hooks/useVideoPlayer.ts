@@ -4,12 +4,30 @@ import { useState, useEffect, useRef, useCallback, useSyncExternalStore, RefObje
 
 const noopSubscribe = () => () => {};
 
+// A single tap only toggles play/pause inside this centered box (as a
+// fraction of the container on each axis -- 0.25 margin leaves a 50%-wide,
+// 50%-tall zone in the middle). Taps outside it just toggle control
+// visibility instead, so mis-taps near the edges (common on mobile, where
+// thumbs rest near the screen border) don't accidentally pause playback.
+const CENTER_TAP_ZONE_MARGIN = 0.25;
+
 function getPipSnapshot() {
   return typeof document !== 'undefined' && document.pictureInPictureEnabled;
 }
 function getPipServerSnapshot() {
   return false;
 }
+
+function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.matchMedia('(pointer: coarse)').matches;
+}
+
+// Screen Orientation API's lock()/unlock() aren't in TS's DOM lib (still
+// experimental/Chromium-only -- notably absent on iOS Safari, which has no
+// equivalent and just relies on the OS's own rotation lock instead). Best
+// effort only: failures are expected on unsupported browsers and swallowed.
+type OrientationLockable = ScreenOrientation & { lock?: (orientation: string) => Promise<void> };
 
 interface UseVideoPlayerOptions {
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -29,16 +47,50 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
   const [skipFeedback, setSkipFeedback] = useState<'forward' | 'backward' | null>(null);
 
   const isScrubbingRef = useRef(false);
+  // True only while the CURRENT fullscreen session was entered by rotation
+  // (not a manual tap on the fullscreen button) -- lets the orientation
+  // effect below know it's safe to auto-exit on rotating back to portrait,
+  // without fighting a user who manually stayed in fullscreen.
+  const autoFullscreenRef = useRef(false);
 
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    const onFullscreenChange = () => {
+      const active = !!document.fullscreenElement;
+      setIsFullscreen(active);
+      if (!active) autoFullscreenRef.current = false;
+    };
     document.addEventListener('fullscreenchange', onFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
   }, []);
+
+  // Mobile only: rotating to landscape auto-fullscreens the player, rotating
+  // back to portrait auto-exits -- but only for a fullscreen session THIS
+  // effect started (see autoFullscreenRef above), so it doesn't yank someone
+  // out of fullscreen they entered manually while happening to be portrait.
+  useEffect(() => {
+    if (!isMobileDevice()) return;
+    const mql = window.matchMedia('(orientation: landscape)');
+
+    const handleOrientationChange = () => {
+      const container = containerRef.current;
+      if (!container) return;
+      if (mql.matches) {
+        if (!document.fullscreenElement) {
+          autoFullscreenRef.current = true;
+          container.requestFullscreen?.()?.catch(() => { autoFullscreenRef.current = false; });
+        }
+      } else if (document.fullscreenElement && autoFullscreenRef.current) {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    };
+
+    mql.addEventListener('change', handleOrientationChange);
+    return () => mql.removeEventListener('change', handleOrientationChange);
+  }, [containerRef]);
 
   const triggerSkipFeedback = useCallback((dir: 'forward' | 'backward') => {
     setSkipFeedback(dir);
@@ -126,17 +178,31 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
         // rejecting Promise on failure -- guard both instead of assuming a
         // spec-compliant Promise comes back.
         const result = container.requestFullscreen?.();
-        if (result && typeof result.then === 'function') {
-          result.then(() => setIsFullscreen(true)).catch((err) => console.error('Failed to launch Fullscreen:', err));
-        } else {
+        const afterEnter = () => {
           setIsFullscreen(true);
+          // Manually entering fullscreen on mobile should still land in
+          // landscape, same as rotating there would -- best-effort only,
+          // since orientation lock needs an active fullscreen element and
+          // isn't supported at all on iOS Safari.
+          if (isMobileDevice()) {
+            (screen.orientation as OrientationLockable | undefined)?.lock?.('landscape').catch(() => {});
+          }
+        };
+        if (result && typeof result.then === 'function') {
+          result.then(afterEnter).catch((err) => console.error('Failed to launch Fullscreen:', err));
+        } else {
+          afterEnter();
         }
       } else {
         const result = document.exitFullscreen?.();
-        if (result && typeof result.then === 'function') {
-          result.then(() => setIsFullscreen(false)).catch((err) => console.error('Failed to exit Fullscreen:', err));
-        } else {
+        const afterExit = () => {
           setIsFullscreen(false);
+          try { screen.orientation?.unlock?.(); } catch { /* unsupported, ignore */ }
+        };
+        if (result && typeof result.then === 'function') {
+          result.then(afterExit).catch((err) => console.error('Failed to exit Fullscreen:', err));
+        } else {
+          afterExit();
         }
       }
     } catch (err) {
@@ -165,6 +231,22 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
     }, 3000);
   }, []);
 
+  const toggleControlsVisibility = useCallback(() => {
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    setShowControls((prev) => {
+      const next = !prev;
+      if (next) {
+        controlsTimeoutRef.current = setTimeout(() => {
+          setIsPlaying((playing) => {
+            if (playing) setShowControls(false);
+            return playing;
+          });
+        }, 3000);
+      }
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     return () => {
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
@@ -191,13 +273,24 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
       const isRightHalf = e.clientX - rect.left > rect.width / 2;
       seekBy(isRightHalf ? 10 : -10);
     } else if (e.detail === 1) {
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const insideCenterZone =
+        x >= rect.width * CENTER_TAP_ZONE_MARGIN && x <= rect.width * (1 - CENTER_TAP_ZONE_MARGIN) &&
+        y >= rect.height * CENTER_TAP_ZONE_MARGIN && y <= rect.height * (1 - CENTER_TAP_ZONE_MARGIN);
+
       if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
       clickTimeoutRef.current = setTimeout(() => {
-        handlePlayToggle();
+        if (insideCenterZone) {
+          handlePlayToggle();
+        } else {
+          toggleControlsVisibility();
+        }
         clickTimeoutRef.current = null;
       }, 250);
     }
-  }, [containerRef, seekBy, handlePlayToggle]);
+  }, [containerRef, seekBy, handlePlayToggle, toggleControlsVisibility]);
 
   // Keyboard shortcuts: space, arrows, F (fullscreen), M (mute)
   useEffect(() => {

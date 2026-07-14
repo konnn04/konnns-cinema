@@ -10,11 +10,15 @@ interface WatchPartyToggleProps {
   movieSlug: string;
   episodeSlug: string;
   initialJoinCode?: string;
+  currentTime?: number;
+  isPlaying?: boolean;
 }
 
-export default function WatchPartyToggle({ movieSlug, episodeSlug, initialJoinCode }: WatchPartyToggleProps) {
+export default function WatchPartyToggle({ movieSlug, episodeSlug, initialJoinCode, currentTime, isPlaying }: WatchPartyToggleProps) {
   const { t } = useLanguage();
-  const [isOpen, setIsOpen] = useState(false);
+  // Arriving via a share link (?room=CODE) should surface the join UI
+  // immediately rather than leaving it tucked behind a collapsed toggle.
+  const [isOpen, setIsOpen] = useState(!!initialJoinCode);
 
   return (
     <div className="border border-zinc-800 bg-black/30">
@@ -57,6 +61,8 @@ export default function WatchPartyToggle({ movieSlug, episodeSlug, initialJoinCo
                 movieSlug={movieSlug}
                 episodeSlug={episodeSlug}
                 initialJoinCode={initialJoinCode}
+                currentTime={currentTime}
+                isPlaying={isPlaying}
               />
             </div>
           </motion.div>
