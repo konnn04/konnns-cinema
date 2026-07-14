@@ -3,21 +3,10 @@ import Link from 'next/link';
 import { Lock } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: { absolute: 'Access' },
-  description: 'Access',
+  title: { absolute: '🔑 Access Denied' },
+  description: 'Bạn không có quyền truy cập trang này / You do not have permission to view this page',
   robots: { index: false, follow: false },
-  openGraph: {
-    title: 'Access',
-    description: 'Access',
-    siteName: 'Access',
-    images: [],
-  },
 };
-
-// Deliberately minimal and generic -- no site name, branding, or any
-// mention of what this site is. Middleware rewrites every blocked route
-// here in place (URL unchanged), so this is the only thing an
-// unauthenticated visitor can ever see.
 export default function AccessDeniedPage() {
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-6">
