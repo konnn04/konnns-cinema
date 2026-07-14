@@ -1,3 +1,5 @@
+// It's BETA, not PRODUCTION, not suitable for reference purposes
+
 // Naive block-matching optical flow + midpoint interpolation.
 //
 // Explicitly NOT comparable to ML-based interpolators (RIFE/DAIN) that TVs'

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, use, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowRight, Tv, X, Heart, Bell, BellOff, Star } from 'lucide-react';
+import { X, Heart, Bell, BellOff, Star, Info, MoveLeft } from 'lucide-react';
 import Hls from 'hls.js';
 import { motion, AnimatePresence } from 'motion/react';
 import { api, MovieDetail, ServerEpisode, ServerData } from '@/lib/api';
@@ -18,6 +18,10 @@ import { useVideoPlayer } from '@/hooks/useVideoPlayer';
 import { useAudioEnhancer } from '@/hooks/useAudioEnhancer';
 import { useFsrUpscale } from '@/hooks/useFsrUpscale';
 import { useFrameInterpolation } from '@/hooks/useFrameInterpolation';
+import { useWatchParty } from '@/hooks/useWatchParty';
+import { useWatchPartyRoomStore } from '@/lib/stores/useWatchPartyRoomStore';
+import { isValidRoomCodeFormat, normalizeRoomCode } from '@/lib/watchParty/roomCode';
+import { PLAYBACK_HEARTBEAT_MS, PLAYBACK_DRIFT_THRESHOLD_SECONDS } from '@/lib/watchParty/constants';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MobileNav from '@/components/MobileNav';
@@ -28,6 +32,12 @@ import StreamSidebar from '@/components/player/StreamSidebar';
 import AutoNextOverlay from '@/components/player/AutoNextOverlay';
 import SkipIntroPrompt from '@/components/player/SkipIntroPrompt';
 import { SkipFeedbackOverlay, BufferingOverlay, PlayerErrorOverlay } from '@/components/player/PlayerOverlays';
+import WatchPartyToggle from '@/components/watchparty/WatchPartyToggle';
+import EpisodeChangePrompt from '@/components/watchparty/EpisodeChangePrompt';
+import FloatingComments from '@/components/watchparty/FloatingComments';
+import FloatingReactions from '@/components/watchparty/FloatingReactions';
+import FloatingCommentsToggle from '@/components/watchparty/FloatingCommentsToggle';
+import QuickChatInput from '@/components/watchparty/QuickChatInput';
 
 interface WatchPageProps {
   params: Promise<{ slug: string; episode: string }>;
@@ -35,6 +45,9 @@ interface WatchPageProps {
 
 const ANIME_SKIP_SECONDS = 90;
 const ANIME_INTRO_WINDOW_SECONDS = 100;
+
+const noop = () => { };
+const noopSeek = (_e: React.ChangeEvent<HTMLInputElement>) => { };
 
 export default function WatchPage({ params }: WatchPageProps) {
   const { t, language } = useLanguage();
@@ -58,6 +71,7 @@ export default function WatchPage({ params }: WatchPageProps) {
   const [playerError, setPlayerError] = useState<string | null>(null);
 
   const [isTheaterMode, setIsTheaterMode] = useState(false);
+  const [autoJoinCode, setAutoJoinCode] = useState<string | undefined>(undefined);
 
   const [introDismissedForEpisode, setIntroDismissedForEpisode] = useState<string | null>(null);
   const skipIntroDismissed = introDismissedForEpisode === episodeSlug;
@@ -78,8 +92,71 @@ export default function WatchPage({ params }: WatchPageProps) {
 
   const player = useVideoPlayer({ videoRef, containerRef: playerContainerRef });
 
-  // BETA lab: WebGPU upscale/frame-interpolation + Web Audio enhancement.
-  // Enabled state is persisted preference, toggled from the player settings popover.
+  const party = useWatchParty();
+  const partyRoomCode = useWatchPartyRoomStore((s) => s.roomCode);
+  const partyIsHost = useWatchPartyRoomStore((s) => s.isHost());
+  const partyCanControl = useWatchPartyRoomStore((s) => s.canControlPlayback());
+  const partyMovieSlug = useWatchPartyRoomStore((s) => s.movieSlug);
+  const partyEpisodeSlug = useWatchPartyRoomStore((s) => s.episodeSlug);
+  const partyPlayback = useWatchPartyRoomStore((s) => s.playback);
+  const partyPendingEpisodeChange = useWatchPartyRoomStore((s) => s.pendingEpisodeChange);
+  const canControlVideo = !partyRoomCode || partyCanControl;
+
+  // Prefill the join code when arriving via a share link.
+  useEffect(() => {
+    const roomParam = searchParams.get('room');
+    if (!roomParam) return;
+    const code = normalizeRoomCode(roomParam);
+    if (isValidRoomCodeFormat(code)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAutoJoinCode(code);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Host propagates episode changes to the room; members just react to
+  // `partyMovieSlug`/`partyEpisodeSlug` changes via the effect below.
+  useEffect(() => {
+    if (!partyRoomCode || !partyIsHost) return;
+    if (partyMovieSlug !== slug || partyEpisodeSlug !== episodeSlug) {
+      party.changeEpisode(slug, episodeSlug);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, episodeSlug, partyRoomCode, partyIsHost]);
+
+  useEffect(() => {
+    if (!partyRoomCode || partyIsHost || !partyMovieSlug || !partyEpisodeSlug || partyPendingEpisodeChange) return;
+    if (partyMovieSlug !== slug || partyEpisodeSlug !== episodeSlug) {
+      router.push(`/watch/${partyMovieSlug}/${partyEpisodeSlug}`);
+    }
+  }, [partyRoomCode, partyIsHost, partyMovieSlug, partyEpisodeSlug, partyPendingEpisodeChange, slug, episodeSlug, router]);
+
+  useEffect(() => {
+    if (!partyRoomCode || !partyPlayback) return;
+    const video = videoRef.current;
+    if (!video) return;
+    const elapsed = partyPlayback.isPlaying ? (Date.now() - partyPlayback.updatedAt) / 1000 : 0;
+    const expected = partyPlayback.currentTime + elapsed;
+    if (Math.abs(video.currentTime - expected) > PLAYBACK_DRIFT_THRESHOLD_SECONDS) {
+      video.currentTime = expected;
+    }
+    if (partyPlayback.isPlaying && video.paused) {
+      video.play().catch(() => { });
+    } else if (!partyPlayback.isPlaying && !video.paused) {
+      video.pause();
+    }
+  }, [partyRoomCode, partyPlayback]);
+
+  useEffect(() => {
+    if (!partyRoomCode || !canControlVideo || !player.isPlaying) return;
+    const id = setInterval(() => {
+      const video = videoRef.current;
+      if (video) party.updatePlayback(true, video.currentTime);
+    }, PLAYBACK_HEARTBEAT_MS);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partyRoomCode, canControlVideo, player.isPlaying]);
+
   const betaAudioPreset = usePreferencesStore((s) => s.betaAudioPreset);
   const betaFsrUpscale = usePreferencesStore((s) => s.betaFsrUpscale);
   const betaFsrUpscaleMode = usePreferencesStore((s) => s.betaFsrUpscaleMode);
@@ -115,8 +192,6 @@ export default function WatchPage({ params }: WatchPageProps) {
     setIntroDismissedForEpisode(episodeSlug);
   }, [player, episodeSlug]);
 
-  // Pin/Remind quick actions -- so people don't have to bounce back to the
-  // movie detail page just to favorite or set a reminder while watching.
   const isFavorited = useFavoritesStore((s) => (movie ? s.isFavorited(movie.slug) : false));
   const toggleFavoriteInStore = useFavoritesStore((s) => s.toggleFavorite);
   const isReminded = useReminderStore((s) => (movie ? s.isReminded(movie.slug) : false));
@@ -183,7 +258,7 @@ export default function WatchPage({ params }: WatchPageProps) {
       video.currentTime = lastWatched.timestamp;
     }
 
-    video.play().catch(() => {});
+    video.play().catch(() => { });
   }, [slug, episodeSlug]);
 
   useEffect(() => {
@@ -245,10 +320,6 @@ export default function WatchPage({ params }: WatchPageProps) {
               break;
           }
         } else if (data.details !== Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
-          // Buffer-stall detection is routine (brief network/decode jitter,
-          // seeking, tab backgrounding) and hls.js's GapController recovers
-          // from it on its own -- logging every occurrence as an error was
-          // just noise. Other non-fatal event types are still worth a peek.
           console.warn('Non-fatal HLS event:', data.details);
         }
       });
@@ -364,17 +435,25 @@ export default function WatchPage({ params }: WatchPageProps) {
       <main className="w-full pt-20 max-w-7xl mx-auto px-4 sm:px-8 md:px-12 py-8 space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-          {}
           <div className="col-span-1 lg:col-span-8 space-y-4">
 
+            <div className="flex justify-between">
+              <Link
+                href={`/movie/${slug}`}
+                className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 border border-zinc-800 hover:border-[#E2B646] text-zinc-400 hover:text-[#E2B646] text-[9px] font-mono font-bold uppercase tracking-wider transition-all"
+                title={t('watch.back_to_movie')}
+              >
+                <MoveLeft size={11}/>
+                <span className="hidden sm:inline">{t('watch.back_to_movie')}</span>
+              </Link>
+            </div>
             <div className={isTheaterMode ? 'fixed inset-0 z-40 bg-black flex items-center justify-center p-0 sm:p-6' : ''}>
               <div
                 ref={playerContainerRef}
                 onMouseMove={player.handleMouseMove}
-                onClick={player.handlePlayerAreaClick}
-                className={`relative overflow-hidden bg-black border border-zinc-900 group shadow-2xl cursor-none ${
-                  isTheaterMode ? 'w-full max-w-[1800px] aspect-video max-h-[92vh] rounded-none' : 'aspect-video w-full rounded-none'
-                }`}
+                onClick={canControlVideo ? player.handlePlayerAreaClick : undefined}
+                className={`relative overflow-hidden bg-black border border-zinc-900 group shadow-2xl cursor-none ${isTheaterMode ? 'w-full max-w-[1800px] aspect-video max-h-[92vh] rounded-none' : 'aspect-video w-full rounded-none'
+                  }`}
                 style={{ cursor: player.showControls ? 'default' : 'none' }}
               >
                 <video
@@ -383,13 +462,26 @@ export default function WatchPage({ params }: WatchPageProps) {
                   onTimeUpdate={handleTimeUpdate}
                   onDurationChange={player.handleDurationChange}
                   onSeeking={() => setIsBuffering(true)}
-                  onSeeked={() => setIsBuffering(false)}
+                  onSeeked={() => {
+                    setIsBuffering(false);
+                    if (partyRoomCode && canControlVideo && videoRef.current) {
+                      party.updatePlayback(!videoRef.current.paused, videoRef.current.currentTime);
+                    }
+                  }}
                   onPlaying={() => {
                     setIsBuffering(false);
                     player.onPlaying();
+                    if (partyRoomCode && canControlVideo && videoRef.current) {
+                      party.updatePlayback(true, videoRef.current.currentTime);
+                    }
                   }}
                   onWaiting={() => setIsBuffering(true)}
-                  onPause={player.onPause}
+                  onPause={() => {
+                    player.onPause();
+                    if (partyRoomCode && canControlVideo && videoRef.current) {
+                      party.updatePlayback(false, videoRef.current.currentTime);
+                    }
+                  }}
                   onEnded={handleVideoEnded}
                   controls={false}
                   className={`w-full h-full object-contain transition-all duration-300 ${showEffectsCanvas ? 'opacity-0' : ''}`}
@@ -400,8 +492,8 @@ export default function WatchPage({ params }: WatchPageProps) {
                   }}
                 />
 
-                {/* BETA: WebGPU upscale / frame interpolation output. The <video>
-                    above stays mounted (opacity-0) so it keeps driving frames + audio. */}
+                {
+                }
                 {showEffectsCanvas && (
                   <canvas
                     ref={effectsCanvasRef}
@@ -442,6 +534,15 @@ export default function WatchPage({ params }: WatchPageProps) {
                   onDismiss={() => setIntroDismissedForEpisode(episodeSlug)}
                 />
 
+                {partyRoomCode && (
+                  <>
+                    <FloatingComments />
+                    <FloatingReactions />
+                  </>
+                )}
+
+                <EpisodeChangePrompt />
+
                 <AnimatePresence>
                   {player.showControls && !playerError && (
                     <motion.div
@@ -461,15 +562,21 @@ export default function WatchPage({ params }: WatchPageProps) {
                         </div>
                       </div>
 
+                      {partyRoomCode && !canControlVideo && (
+                        <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-wider text-center">
+                          {t('watchparty.host_controls_only')}
+                        </p>
+                      )}
+
                       <PlayerControlBar
                         currentTime={player.currentTime}
                         duration={player.duration}
                         formatTime={player.formatTime}
-                        onSeek={player.handleSeek}
-                        onSeekStart={player.handleSeekStart}
-                        onSeekEnd={player.handleSeekEnd}
+                        onSeek={canControlVideo ? player.handleSeek : noopSeek}
+                        onSeekStart={canControlVideo ? player.handleSeekStart : noop}
+                        onSeekEnd={canControlVideo ? player.handleSeekEnd : noop}
                         isPlaying={player.isPlaying}
-                        onPlayToggle={player.handlePlayToggle}
+                        onPlayToggle={canControlVideo ? player.handlePlayToggle : noop}
                         isMuted={player.isMuted}
                         volume={player.volume}
                         onVolumeChange={player.handleVolumeChange}
@@ -491,6 +598,13 @@ export default function WatchPage({ params }: WatchPageProps) {
                         frameInterpolationError={frameInterpolation.error}
                         audioError={audioEnhancer.error}
                       />
+
+                      {partyRoomCode && (
+                        <>
+                          <FloatingCommentsToggle />
+                          <QuickChatInput />
+                        </>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -507,21 +621,24 @@ export default function WatchPage({ params }: WatchPageProps) {
               )}
             </div>
 
-            {}
+            { }
             <div className="p-6 bg-black/40 border border-zinc-850 rounded-none space-y-4">
               <div className="flex items-center justify-between gap-4">
-                <h2 className="font-serif font-black italic text-lg text-white">
-                  {movie?.name}
-                </h2>
+                <div className="flex items-center gap-3 min-w-0">
+                  <h2 className="font-serif font-black italic text-lg text-white ">
+                    {movie?.name}
+                  </h2>
+
+                </div>
                 {currentEpisode && (
-                  <span className="px-3 py-1 rounded-none bg-[#E2B646]/10 border border-[#E2B646]/20 text-[#E2B646] font-serif text-[10px] tracking-widest font-bold uppercase">
+                  <span className="px-3 py-1 rounded-none bg-[#E2B646]/10 border border-[#E2B646]/20 text-[#E2B646] font-serif text-[10px] tracking-widest font-bold uppercase shrink-0">
                     EPISODE {currentEpisode.name}
                   </span>
                 )}
               </div>
 
-              {/* Ratings + Pin/Remind quick actions, so watching doesn't require
-                  bouncing back to the movie detail page for these */}
+              {
+              }
               <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-zinc-900">
                 {!!movie?.tmdb?.vote_average && (
                   <span className="flex items-center gap-1 px-2 py-1 bg-zinc-950/60 border border-zinc-800 text-[10px] font-mono text-[#E2B646]">
@@ -538,11 +655,10 @@ export default function WatchPage({ params }: WatchPageProps) {
 
                 <button
                   onClick={toggleFavorite}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 border text-[10px] font-semibold uppercase tracking-wider transition-all cursor-pointer ${
-                    isFavorited
-                      ? 'border-[#E2B646]/30 bg-[#E2B646]/10 text-[#E2B646]'
-                      : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white'
-                  }`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 border text-[10px] font-semibold uppercase tracking-wider transition-all cursor-pointer ${isFavorited
+                    ? 'border-[#E2B646]/30 bg-[#E2B646]/10 text-[#E2B646]'
+                    : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white'
+                    }`}
                 >
                   <Heart size={12} className={isFavorited ? 'fill-[#E2B646]' : ''} />
                   <span>{isFavorited ? t('movie.pinned') : t('movie.pin')}</span>
@@ -550,18 +666,17 @@ export default function WatchPage({ params }: WatchPageProps) {
 
                 <button
                   onClick={toggleReminder}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 border text-[10px] font-semibold uppercase tracking-wider transition-all cursor-pointer ${
-                    isReminded
-                      ? 'border-[#E2B646]/30 bg-[#E2B646]/10 text-[#E2B646]'
-                      : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white'
-                  }`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 border text-[10px] font-semibold uppercase tracking-wider transition-all cursor-pointer ${isReminded
+                    ? 'border-[#E2B646]/30 bg-[#E2B646]/10 text-[#E2B646]'
+                    : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white'
+                    }`}
                 >
                   {isReminded ? <BellOff size={12} /> : <Bell size={12} />}
                   <span>{isReminded ? (language === 'vi' ? 'Bỏ Nhắc' : 'Unremind') : (language === 'vi' ? 'Nhắc Xem' : 'Remind Me')}</span>
                 </button>
               </div>
 
-              {/* Genre tags */}
+              { }
               {movie?.category && movie.category.length > 0 && (
                 <div className="flex flex-wrap gap-2 pb-3 border-b border-zinc-900">
                   {movie.category.map((cat) => (
@@ -576,7 +691,7 @@ export default function WatchPage({ params }: WatchPageProps) {
                 </div>
               )}
 
-              {/* Anime Info from AniList */}
+              { }
               {animeInfo && (
                 <div className="flex flex-wrap gap-3 pb-3 border-b border-zinc-900">
                   {animeInfo.episodes != null && (
@@ -620,13 +735,17 @@ export default function WatchPage({ params }: WatchPageProps) {
             </div>
           </div>
 
-          <StreamSidebar
-            episodes={episodes}
-            activeServerIdx={activeServerIdx}
-            onServerChange={handleServerChange}
-            slug={slug}
-            episodeSlug={episodeSlug}
-          />
+          <div className="col-span-1 lg:col-span-4 space-y-6">
+            <WatchPartyToggle movieSlug={slug} episodeSlug={episodeSlug} initialJoinCode={autoJoinCode} />
+
+            <StreamSidebar
+              episodes={episodes}
+              activeServerIdx={activeServerIdx}
+              onServerChange={handleServerChange}
+              slug={slug}
+              episodeSlug={episodeSlug}
+            />
+          </div>
         </div>
       </main>
 

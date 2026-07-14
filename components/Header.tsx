@@ -7,6 +7,7 @@ import DesktopNav from './header/DesktopNav';
 import SearchBox from './header/SearchBox';
 import NotificationsBell from './header/NotificationsBell';
 import LanguageToggle from './header/LanguageToggle';
+import UserMenu from './header/UserMenu';
 import Image from 'next/image';
 
 function HeaderContent() {
@@ -54,6 +55,8 @@ function HeaderContent() {
           <NotificationsBell />
 
           <LanguageToggle />
+
+          <UserMenu />
 
           <Link href="/settings" className="text-zinc-400 hover:text-white transition-colors" title="Settings">
             <Settings size={16} />

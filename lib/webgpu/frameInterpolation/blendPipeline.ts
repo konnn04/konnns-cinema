@@ -1,3 +1,5 @@
+// It's BETA, not PRODUCTION, not suitable for reference purposes
+
 import { BLEND_SHADER } from './blendShader';
 import type { CreateFrameInterpolationAlgorithmParams, FrameInterpolationAlgorithm } from './types';
 

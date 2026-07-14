@@ -1,0 +1,114 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "watchPartyRooms": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || (newData.val() === null && data.child('emptySince').val() != null && now - data.child('emptySince').val() > 60000))",
+
+        "hostUid": {
+          ".write": "auth != null && root.child('watchPartyRooms/' + $code + '/members/' + newData.val()).exists() && (auth.uid === data.val() || (data.parent().child('members').child(data.val()).child('online').val() === false && now - data.parent().child('members').child(data.val()).child('disconnectedAt').val() > 60000))",
+          ".validate": "newData.isString()"
+        },
+
+        "allowMemberControl": {
+          ".write": "auth != null && auth.uid === root.child('watchPartyRooms/' + $code + '/hostUid').val()",
+          ".validate": "newData.isBoolean()"
+        },
+
+        "movieSlug": {
+          ".write": "auth != null && auth.uid === root.child('watchPartyRooms/' + $code + '/hostUid').val()",
+          ".validate": "newData.isString()"
+        },
+        "episodeSlug": {
+          ".write": "auth != null && auth.uid === root.child('watchPartyRooms/' + $code + '/hostUid').val()",
+          ".validate": "newData.isString()"
+        },
+
+        "emptySince": {
+          ".write": "auth != null",
+          ".validate": "newData.val() === null || newData.isNumber()"
+        },
+
+        "createdAt": { ".validate": "newData.isNumber()" },
+
+        "playback": {
+          ".write": "auth != null && (auth.uid === root.child('watchPartyRooms/' + $code + '/hostUid').val() || root.child('watchPartyRooms/' + $code + '/allowMemberControl').val() === true)",
+          ".validate": "newData.hasChildren(['isPlaying', 'currentTime', 'updatedAt'])",
+          "isPlaying": { ".validate": "newData.isBoolean()" },
+          "currentTime": { ".validate": "newData.isNumber()" },
+          "updatedAt": { ".validate": "newData.val() === now" }
+        },
+
+        "members": {
+          "$uid": {
+            ".write": "auth != null && (auth.uid === $uid || (newData.val() === null && root.child('watchPartyRooms/' + $code + '/episodeChange/pendingUids/' + $uid).exists() && now - root.child('watchPartyRooms/' + $code + '/episodeChange/initiatedAt').val() > 30000))",
+            ".validate": "newData.hasChildren(['nickname', 'joinedAt', 'online'])",
+            "nickname": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100" },
+            "joinedAt": { ".validate": "newData.isNumber()" },
+            "online": { ".validate": "newData.isBoolean()" },
+            "disconnectedAt": { ".validate": "newData.val() === null || newData.val() === now" },
+            "verified": { ".validate": "newData.val() === (auth.token.firebase.sign_in_provider !== 'anonymous')" },
+            "$other": { ".validate": false }
+          }
+        },
+
+        "chat": {
+          "$pushId": {
+            ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || (newData.val() === null && now - data.child('createdAt').val() > 3600000))",
+            ".validate": "newData.hasChildren(['uid', 'nickname', 'text', 'createdAt'])",
+            "uid": { ".validate": "newData.val() === auth.uid" },
+            "nickname": { ".validate": "newData.isString() && newData.val().length <= 100" },
+            "text": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 512" },
+            "createdAt": { ".validate": "newData.val() === now" },
+            "verified": { ".validate": "newData.val() === (auth.token.firebase.sign_in_provider !== 'anonymous')" },
+            "$other": { ".validate": false }
+          }
+        },
+
+        "chatCooldown": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && (!data.exists() || now - data.val() > 5000)",
+            ".validate": "newData.val() === now"
+          }
+        },
+
+        "reactions": {
+          "$pushId": {
+            ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || (newData.val() === null && data.child('uid').val() === auth.uid))",
+            ".validate": "newData.hasChildren(['uid', 'nickname', 'icon', 'createdAt'])",
+            "uid": { ".validate": "newData.val() === auth.uid" },
+            "createdAt": { ".validate": "newData.val() === now" },
+            "$other": { ".validate": true }
+          }
+        },
+
+        "episodeChange": {
+          ".write": "auth != null && (newData.val() === null || auth.uid === root.child('watchPartyRooms/' + $code + '/hostUid').val())",
+          ".validate": "newData.val() === null || (newData.hasChildren(['movieSlug', 'episodeSlug', 'initiatedAt']) && newData.child('initiatedAt').val() === now)",
+          "pendingUids": {
+            "$uid": {
+              ".write": "auth != null && newData.val() === null && (auth.uid === $uid || now - root.child('watchPartyRooms/' + $code + '/episodeChange/initiatedAt').val() > 30000)"
+            }
+          }
+        }
+      }
+    },
+
+    "watchPartyUidToRoom": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    }
+  }
+}

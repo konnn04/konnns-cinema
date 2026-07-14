@@ -13,6 +13,7 @@ import MovieRow from '@/components/MovieRow';
 import PosterImage from '@/components/PosterImage';
 import SplashIntro from '@/components/SplashIntro';
 import OnboardingModal from '@/components/OnboardingModal';
+import WatchPartySection from '@/components/home/WatchPartySection';
 import { useLanguage } from '@/hooks/useLanguage';
 
 export default function HomePage() {
@@ -275,6 +276,8 @@ export default function HomePage() {
 
                 {}
                 <div className="relative z-20 space-y-6 md:-mt-12 bg-gradient-to-b from-transparent via-cinema-bg to-cinema-bg pt-10">
+                  <WatchPartySection />
+
                   {}
                   {personalizedRow && (
                     <MovieRow

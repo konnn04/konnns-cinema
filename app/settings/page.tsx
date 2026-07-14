@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Sliders, Sparkles, Check, RefreshCw, Trash2, ArrowLeft, ShieldAlert, Play, Heart, Bell, Languages } from 'lucide-react';
+import { Sliders, Sparkles, Check, RefreshCw, Trash2, ArrowLeft, ShieldAlert, Play, Heart, Bell, Languages, UserCircle, LogOut } from 'lucide-react';
 import { api, CategoryItem, ANIME_PSEUDO_GENRE } from '@/lib/api';
 import { isAdultVerified, setAdultVerified } from '@/lib/adult';
 import { useAdultContentStore } from '@/lib/stores/useAdultContentStore';
 import { usePreferencesStore } from '@/lib/stores/usePreferencesStore';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from '@/lib/toast';
+import ConfirmDialog, { useConfirm } from '@/components/ConfirmDialog';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MobileNav from '@/components/MobileNav';
@@ -15,6 +18,9 @@ import AdultConfirmModal from '@/components/AdultConfirmModal';
 
 export default function SettingsPage() {
   const { language, setLanguage, t } = useLanguage();
+  const { confirm: confirmNuke, dialogProps: nukeDialogProps } = useConfirm();
+  const { user, signOutUser } = useAuth();
+  const isSignedIn = !!user && !user.isAnonymous;
 
   // Genres list fetched from the API for display (selection state lives in the preferences store)
   const [genres, setGenres] = useState<CategoryItem[]>([]);
@@ -70,11 +76,13 @@ export default function SettingsPage() {
   const handleImageEnhanceToggle = () => setPlayerImageEnhance(!imageEnhance);
 
   // Nuke completely clears all local & session databases, restoring fresh onboarding states
-  const handleClearAllData = () => {
+  const handleClearAllData = async () => {
     if (typeof window !== 'undefined') {
-      if (confirm('CRITICAL ACTION: This will completely wipe your favorites, watch history, reminder subscriptions, and preferences. Proceed with reset?')) {
+      const ok = await confirmNuke(t('common.confirm'), t('common.confirm_nuke'), 'danger');
+      if (ok) {
         localStorage.clear();
         sessionStorage.clear();
+        toast.success(t('common.nuke_complete'));
         window.location.href = '/';
       }
     }
@@ -100,6 +108,46 @@ export default function SettingsPage() {
               <span>{t('fav.back')}</span>
             </button>
           </Link>
+        </div>
+
+        {/* Section: Account */}
+        <div className="p-6 bg-black/40 border border-zinc-850 rounded-none space-y-4">
+          <h2 className="font-serif font-black italic text-base text-white tracking-wide uppercase flex items-center space-x-2">
+            <UserCircle size={16} className="text-[#E2B646]" />
+            <span>{t('auth.account')}</span>
+          </h2>
+
+          {isSignedIn ? (
+            <div className="flex items-center justify-between p-4 bg-zinc-900/40 border border-zinc-850 rounded-none">
+              <div className="flex items-center gap-3 min-w-0">
+                {user.photoURL && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full shrink-0" referrerPolicy="no-referrer" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-zinc-200 truncate">{user.displayName || user.email}</p>
+                  <p className="text-[10px] text-zinc-500 truncate">{user.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => signOutUser()}
+                className="flex items-center gap-1.5 px-4 py-2 border border-zinc-800 hover:border-red-500 text-zinc-400 hover:text-red-500 rounded-none text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 ml-4"
+              >
+                <LogOut size={12} />
+                {t('auth.sign_out')}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between p-4 bg-zinc-900/40 border border-zinc-850 rounded-none gap-4">
+              <p className="text-[11px] text-zinc-500 font-sans max-w-md">{t('auth.login_desc')}</p>
+              <Link
+                href="/login"
+                className="px-4 py-2 bg-[#E2B646] hover:bg-[#E2B646]/90 text-black rounded-none text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0"
+              >
+                {t('auth.sign_in_google')}
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Section 0: Language */}
@@ -300,6 +348,8 @@ export default function SettingsPage() {
 
       <Footer />
       <MobileNav />
+
+      <ConfirmDialog {...nukeDialogProps} confirmLabel={t('common.confirm')} cancelLabel={t('common.cancel')} variant="danger" />
 
       {showAdultConfirm && (
         <AdultConfirmModal

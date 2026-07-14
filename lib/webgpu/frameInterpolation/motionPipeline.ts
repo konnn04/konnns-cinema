@@ -1,3 +1,5 @@
+// It's BETA, not PRODUCTION, not suitable for reference purposes
+
 import { MOTION_ESTIMATION_SHADER, INTERPOLATE_SHADER } from './motionShaders';
 import type { CreateFrameInterpolationAlgorithmParams, FrameInterpolationAlgorithm } from './types';
 

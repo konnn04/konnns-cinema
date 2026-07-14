@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/movie/', '/watch/', '/search/', '/favorites/', '/history/', '/settings/', '/category/', '/country/', '/type/', '/year/'],
       },
     ],
-    sitemap: '',
+    sitemap: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://konnns-cinema.vercel.app'}/sitemap.xml`,
   };
 }

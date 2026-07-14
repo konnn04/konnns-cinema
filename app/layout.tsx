@@ -1,8 +1,12 @@
 import type {Metadata} from 'next';
 import {Outfit, Inter, JetBrains_Mono, Be_Vietnam_Pro} from 'next/font/google';
 import {LanguageProvider} from '@/hooks/useLanguage';
+import {AuthProvider} from '@/hooks/useAuth';
+import {WatchPartyProvider} from '@/hooks/useWatchParty';
 import BackToTop from '@/components/BackToTop';
-import './globals.css'; // Global styles
+import ToastManager from '@/components/ToastManager';
+import CloudSyncManager from '@/components/CloudSyncManager';
+import './globals.css'; 
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -20,8 +24,6 @@ const mono = JetBrains_Mono({
   variable: '--font-mono',
 });
 
-// Bold geometric sans with full Vietnamese glyph coverage, replacing the
-// script-like Playfair Display previously used for titles/headings.
 const serif = Be_Vietnam_Pro({
   subsets: ['latin', 'vietnamese'],
   variable: '--font-serif',
@@ -29,9 +31,25 @@ const serif = Be_Vietnam_Pro({
   style: ['normal', 'italic'],
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
 export const metadata: Metadata = {
-  title: "Konnn's Cinema",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Konnn's Cinema",
+    template: "%s | Konnn's Cinema",
+  },
   description: "Khám phá và xem phim lẻ, phim bộ, anime trực tuyến trên Konnn's Cinema - nền tảng xem phim trực tuyến miễn phí.",
+  openGraph: {
+    siteName: "Konnn's Cinema",
+    type: 'website',
+    locale: 'vi_VN',
+    images: ['/api/og'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
@@ -39,8 +57,14 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
     <html lang="en" className={`${outfit.variable} ${inter.variable} ${mono.variable} ${serif.variable} dark`}>
       <body suppressHydrationWarning className="bg-cinema-bg text-zinc-100 antialiased min-h-screen">
         <LanguageProvider>
-          {children}
-          <BackToTop />
+          <AuthProvider>
+            <CloudSyncManager />
+            <WatchPartyProvider>
+              {children}
+              <BackToTop />
+              <ToastManager />
+            </WatchPartyProvider>
+          </AuthProvider>
         </LanguageProvider>
       </body>
     </html>
