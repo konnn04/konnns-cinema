@@ -1,3 +1,5 @@
+// It's BETA, not PRODUCTION, not suitable for reference purposes
+
 // Fullscreen-triangle blit. Reuses the same shape as the FSR upscale
 // pipeline's blit shader but kept as its own copy -- the two BETA features
 // stay decoupled on purpose so neither can break the other.

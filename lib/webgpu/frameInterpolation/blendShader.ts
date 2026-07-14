@@ -1,3 +1,5 @@
+// It's BETA, not PRODUCTION, not suitable for reference purposes
+
 // Plain temporal cross-fade -- no motion estimation pass at all, so it skips
 // the compute cost that made 'motion' mode contend with hardware video
 // decode for GPU time (the likely cause of the reported HLS buffer stalls

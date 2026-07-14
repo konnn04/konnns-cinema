@@ -6,8 +6,12 @@ import { resolveImageUrl } from '@/lib/api';
 import { isAdultMovie } from '@/lib/adult';
 import { useWatchHistoryStore } from '@/lib/stores/useWatchHistoryStore';
 import { useAdultContentStore } from '@/lib/stores/useAdultContentStore';
+import { useAuthStore } from '@/lib/stores/useAuthStore';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useLanguage } from '@/hooks/useLanguage';
+import { toast } from '@/lib/toast';
+import { deleteCloudHistory } from '@/lib/userSync';
+import ConfirmDialog, { useConfirm } from '@/components/ConfirmDialog';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MobileNav from '@/components/MobileNav';
@@ -15,10 +19,12 @@ import PosterImage from '@/components/PosterImage';
 
 export default function HistoryPage() {
   const { t } = useLanguage();
+  const { confirm, dialogProps } = useConfirm();
   const history = useWatchHistoryStore((s) => s.history);
   const removeFromHistory = useWatchHistoryStore((s) => s.remove);
   const clearHistory = useWatchHistoryStore((s) => s.clear);
   const adultUnblurred = useAdultContentStore((s) => s.unblurEnabled);
+  const authUser = useAuthStore((s) => s.user);
 
   const loading = !useHasMounted();
 
@@ -28,9 +34,12 @@ export default function HistoryPage() {
     removeFromHistory(slug);
   };
 
-  const clearAllHistory = () => {
-    if (confirm('Are you sure you want to clear your entire watch history?')) {
+  const clearAllHistory = async () => {
+    const ok = await confirm(t('common.confirm'), t('common.confirm_clear_history'));
+    if (ok) {
       clearHistory();
+      if (authUser && !authUser.isAnonymous) deleteCloudHistory(authUser.uid).catch(() => {});
+      toast(t('common.history_cleared'), 'success');
     }
   };
 
@@ -40,7 +49,7 @@ export default function HistoryPage() {
 
       <main className="w-full pt-24 max-w-7xl mx-auto px-4 sm:px-8 md:px-12 py-8 space-y-8">
         
-        {/* Page header controls */}
+        {}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-900 pb-4">
           <div className="flex items-center space-x-3">
             <History className="text-[#E2B646] w-6 h-6 animate-pulse" />
@@ -70,14 +79,12 @@ export default function HistoryPage() {
         </div>
 
         {loading ? (
-          /* Skeletons */
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-6">
             {[1, 2, 3].map((i) => (
               <div key={i} className="aspect-[9/14] w-full bg-zinc-950 border border-zinc-900 animate-pulse rounded-none" />
             ))}
           </div>
         ) : history.length > 0 ? (
-          /* Custom watch history grid cards with progress bars on the lower ledge */
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-6 justify-items-center">
             {history.map((item) => {
               const censored = isAdultMovie(item) && !adultUnblurred;
@@ -89,7 +96,7 @@ export default function HistoryPage() {
                 <Link href={`/watch/${item.slug}/${item.episodeSlug}`}>
                   <div className="relative aspect-[9/14] w-full rounded-none overflow-hidden bg-zinc-900 border border-zinc-850/80 group-hover:border-[#E2B646]/50 transition-all duration-300 shadow-md">
 
-                    {/* Poster thumbnail */}
+                    {}
                     <PosterImage
                       src={resolveImageUrl(item.thumb_url || item.poster_url)}
                       alt={item.name}
@@ -105,10 +112,10 @@ export default function HistoryPage() {
                       </div>
                     )}
 
-                    {/* Dark gradient mask */}
+                    {}
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-black/35 opacity-90 group-hover:opacity-95 transition-opacity" />
 
-                    {/* Deletion cross trigger */}
+                    {}
                     <button
                       onClick={(e) => deleteEntry(item.slug, e)}
                       className="absolute top-3 right-3 z-20 p-2 bg-zinc-950/80 hover:bg-red-950 rounded-none text-zinc-400 hover:text-red-500 border border-zinc-850 hover:border-red-500/30 transition-all cursor-pointer"
@@ -117,14 +124,14 @@ export default function HistoryPage() {
                       <Trash2 size={12} />
                     </button>
 
-                    {/* Episode label */}
+                    {}
                     <div className="absolute top-3 left-3 z-10">
                       <span className="px-2 py-0.5 text-[9px] font-mono font-bold tracking-wider rounded-none bg-black/80 text-[#E2B646] border border-[#E2B646]/30">
                         EP {item.episodeName}
                       </span>
                     </div>
 
-                    {/* Lower Info block */}
+                    {}
                     <div className="absolute bottom-0 left-0 right-0 p-3 pb-4 flex flex-col justify-end">
                       <h3 className="font-serif font-bold text-xs sm:text-sm text-zinc-100 line-clamp-2 leading-snug group-hover:text-[#E2B646] transition-colors italic">
                         {item.name}
@@ -133,7 +140,7 @@ export default function HistoryPage() {
                         Progress: {item.progress}% watched
                       </p>
                       
-                      {/* Active Progress bar on card edge */}
+                      {}
                       <div className="w-full bg-zinc-800 h-1 rounded-none overflow-hidden mt-2.5 border border-black/10">
                         <div
                           className="bg-[#E2B646] h-full rounded-none"
@@ -142,7 +149,7 @@ export default function HistoryPage() {
                       </div>
                     </div>
 
-                    {/* Play button overlay */}
+                    {}
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="p-3 bg-[#E2B646] rounded-none text-black shadow-xl glow-gold transform scale-75 group-hover:scale-100 transition-transform">
                         <Play size={18} className="fill-current" />
@@ -156,7 +163,6 @@ export default function HistoryPage() {
             })}
           </div>
         ) : (
-          /* Empty history state */
           <div className="text-center py-32 space-y-4">
             <History className="w-12 h-12 text-[#E2B646] mx-auto animate-pulse" />
             <div>
@@ -173,6 +179,7 @@ export default function HistoryPage() {
       </main>
 
       <Footer />
+      <ConfirmDialog {...dialogProps} confirmLabel={t('common.confirm')} cancelLabel={t('common.cancel')} variant="danger" />
       <MobileNav />
     </div>
   );

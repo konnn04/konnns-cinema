@@ -1,5 +1,4 @@
-import WebSR from '@websr/websr';
-import weights from '@websr/websr/weights/anime4k/cnn-2x-s-an.json';
+import type WebSR from '@websr/websr';
 import type { CreateUpscaleDriverParams, UpscaleDriver } from './types';
 
 // @websr/websr (https://github.com/sb2702/websr) is a different, newer port
@@ -20,9 +19,18 @@ export function createWebSrDriver({ video, canvas }: CreateUpscaleDriverParams):
 
   return {
     async setup() {
-      const gpu = await WebSR.initWebGPU();
+      // Dynamic import -- @websr/websr references browser globals (`self`)
+      // at module-evaluation time, which crashes SSR if imported statically
+      // (this file is reachable from a 'use client' hook, but Next.js still
+      // evaluates client-component modules on the server for the initial
+      // render). setup() only ever runs client-side, so this is safe.
+      const [{ default: WebSRImpl }, { default: weights }] = await Promise.all([
+        import('@websr/websr'),
+        import('@websr/websr/weights/anime4k/cnn-2x-s-an.json'),
+      ]);
+      const gpu = await WebSRImpl.initWebGPU();
       if (!gpu) throw new Error('WebSR: this browser/device does not support WebGPU');
-      websr = new WebSR({
+      websr = new WebSRImpl({
         network_name: 'anime4k/cnn-2x-s',
         weights,
         gpu,

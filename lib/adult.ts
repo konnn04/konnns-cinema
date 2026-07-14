@@ -20,8 +20,6 @@ export function setAdultVerified(): void {
   useAdultContentStore.getState().setVerified();
 }
 
-// Controls whether 18+ thumbnails render censored (default) or in the clear.
-// Only takes effect once the user has also passed the age confirmation modal at least once.
 export function isAdultUnblurEnabled(): boolean {
   return useAdultContentStore.getState().unblurEnabled;
 }

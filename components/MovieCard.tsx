@@ -154,20 +154,6 @@ export default function MovieCard({ movie, pathImage, onFavoriteChange }: MovieC
               </p>
             </div>
 
-            {}
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                openDetailModal();
-              }}
-              className="absolute bottom-3 right-3 p-1.5 bg-zinc-950/85 backdrop-blur-sm hover:bg-[#E2B646] rounded-none text-zinc-400 hover:text-black border border-zinc-800/80 transition-all hover:scale-110 z-20 cursor-pointer"
-              title={t('movie.details')}
-            >
-              <Info size={14} />
-            </button>
-
-            {}
             <AnimatePresence>
               {isHovered && (
                 <motion.div

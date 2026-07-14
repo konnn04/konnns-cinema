@@ -29,7 +29,7 @@ interface MoviePageProps {
 }
 
 export default function MovieDetailPage({ params }: MoviePageProps) {
-  const { t, language } = useLanguage();
+  const { t, language, translateMovieTitle } = useLanguage();
   const router = useRouter();
   const { slug } = use(params);
 
@@ -274,6 +274,52 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
 
               {}
               <div className="col-span-1 lg:col-span-8 space-y-6">
+
+                {}
+                <div className="space-y-2 select-text">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="font-serif font-black italic text-2xl sm:text-3xl lg:text-4xl text-white tracking-tight leading-none select-text">
+                      {translateMovieTitle(movie)}
+                    </h1>
+                    {movie.chieurap && (
+                      <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider bg-amber-950/30 border border-amber-600/30 text-amber-400">
+                        {t('movie.cinema_release')}
+                      </span>
+                    )}
+                    {movie.sub_docquyen && (
+                      <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider bg-sky-950/30 border border-sky-600/30 text-sky-400">
+                        VIP
+                      </span>
+                    )}
+                    {movie.quality && (
+                      <span className="px-2 py-0.5 text-[9px] font-mono font-bold tracking-wider bg-zinc-950/60 border border-zinc-800 text-zinc-400">
+                        {movie.quality}
+                      </span>
+                    )}
+                  </div>
+                  {}
+                  {movie.origin_name && movie.origin_name !== movie.name && (
+                    <p className="text-xs text-zinc-500 font-sans select-text">{movie.origin_name}</p>
+                  )}
+                  {}
+                  {movie.alternative_names && movie.alternative_names.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-600">{t('movie.alternative_names')}:</span>
+                      {movie.alternative_names.slice(0, 5).map((alt, i) => (
+                        <span key={i} className="px-1.5 py-0.5 text-[10px] font-mono bg-zinc-950/40 border border-zinc-900 text-zinc-500 select-all cursor-text">
+                          {alt}
+                        </span>
+                      ))}
+                      {movie.alternative_names.length > 5 && (
+                        <span className="text-[9px] text-zinc-600 font-mono">+{movie.alternative_names.length - 5}</span>
+                      )}
+                    </div>
+                  )}
+                  {}
+                  <p className="text-[11px] text-zinc-600 font-sans select-text">
+                    {movie.year} &bull; {movie.time} &bull; {movie.lang}
+                  </p>
+                </div>
                 
                 <CinemaTicket
                   movie={movie}
@@ -328,7 +374,7 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
                   )}
                 </div>
 
-                {/* Anime Info from AniList */}
+                {}
                 {animeInfo && (
                   <div className="pt-6 border-t border-zinc-900/80 space-y-3">
                     <h4 className="font-serif font-black italic text-sm text-[#E2B646] uppercase tracking-wider">

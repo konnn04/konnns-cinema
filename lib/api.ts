@@ -148,21 +148,12 @@ export interface FilterParams {
   sort_lang?: 'vietsub' | 'thuyet-minh' | 'long-tieng';
 }
 
-// Fallback used whenever an upstream response omits (or malforms) pagination,
-// so list pages can always safely read response.pagination.totalItems etc.
 const DEFAULT_PAGINATION: PaginationInfo = { totalItems: 0, totalItemsPerPage: 24, currentPage: 1 };
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://phimapi.com';
 const IMAGE_CDN_URL = process.env.NEXT_PUBLIC_IMAGE_CDN_URL || 'https://phimimg.com/upload/vod/';
 const IMAGE_CDN_ORIGIN = IMAGE_CDN_URL.replace(/\/upload\/vod\/?$/, '');
 
-/**
- * Clean and resolve image URLs from the API responses.
- * Handles both relative and absolute paths, v1 structure and tmdb paths.
- * Returns '' when there's no URL to resolve -- callers should render a
- * placeholder (see components/PosterImage.tsx) rather than fetch a stand-in
- * photo over the network.
- */
 export function resolveImageUrl(url: string | undefined, pathImage?: string): string {
   if (!url) {
     return '';
@@ -180,7 +171,11 @@ export function resolveImageUrl(url: string | undefined, pathImage?: string): st
     return `${IMAGE_CDN_ORIGIN}${url}`;
   }
 
-  // Fallback using the returned pathImage or default KKPhim storage
+  if (url.startsWith('uploads/') || url.startsWith('/uploads/')) {
+    const clean = url.startsWith('/') ? url : `/${url}`;
+    return `${IMAGE_CDN_ORIGIN}${clean}`;
+  }
+
   const base = pathImage || IMAGE_CDN_URL;
   const cleanBase = base.endsWith('/') ? base : `${base}/`;
   const cleanUrl = url.startsWith('/') ? url.slice(1) : url;
@@ -188,9 +183,6 @@ export function resolveImageUrl(url: string | undefined, pathImage?: string): st
   return `${cleanBase}${cleanUrl}`;
 }
 
-/**
- * Standard fetch with error handling and optional timeout
- */
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
   try {
@@ -198,7 +190,7 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
       headers: {
         accept: 'application/json',
       },
-      next: { revalidate: 600 }, // Cache response for 10 minutes on server
+      next: { revalidate: 600 }, 
       ...options,
     });
     
@@ -213,9 +205,6 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   }
 }
 
-/**
- * KKPhim API Client definitions
- */
 export const api = {
   /**
    * Get recently updated movies
@@ -231,7 +220,6 @@ export const api = {
       };
     }
 
-    // Fallback to classic format if any
     const classic = await fetchAPI<any>(`/danh-sach/phim-moi-cap-nhat?page=${page}`);
     return {
       items: classic.items || [],
@@ -253,7 +241,6 @@ export const api = {
         pathImage: res.pathImage || IMAGE_CDN_URL,
       };
     } catch {
-      // Fallback to general list if home endpoint fails
       return this.getRecentlyUpdated(page);
     }
   },
@@ -287,7 +274,6 @@ export const api = {
       };
     }
 
-    // Classic fallback
     const classic = await fetchAPI<any>(`/danh-sach/${type}?page=${page}`);
     return {
       items: classic.items || [],
