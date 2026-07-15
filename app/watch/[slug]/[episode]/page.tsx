@@ -457,7 +457,7 @@ export default function WatchPage({ params }: WatchPageProps) {
                 onClick={canControlVideo ? player.handlePlayerAreaClick : undefined}
                 className={`relative overflow-hidden bg-black border border-zinc-900 group shadow-2xl cursor-none ${isTheaterMode ? 'w-full max-w-[1800px] aspect-video max-h-[92vh] rounded-none' : 'aspect-video w-full rounded-none'
                   }`}
-                style={{ cursor: (player.showControls || player.isLocked) ? 'default' : 'none' }}
+                style={{ cursor: player.showControls ? 'default' : 'none' }}
               >
                 <video
                   ref={videoRef}
@@ -546,18 +546,23 @@ export default function WatchPage({ params }: WatchPageProps) {
 
                 <EpisodeChangePrompt />
 
-                {!playerError && (
-                  <button
-                    onClick={(e) => { if (e.detail === 2) player.toggleLock(); }}
-                    className={`absolute top-3 left-3 z-30 p-2 rounded-full border transition-all cursor-pointer ${player.isLocked
-                      ? 'bg-[#E2B646]/90 border-[#E2B646] text-black opacity-70 hover:opacity-100'
-                      : 'bg-black/40 border-zinc-700 text-zinc-300 opacity-60 hover:opacity-100'
-                      }`}
-                    title={player.isLocked ? t('watch.unlock_screen') : t('watch.lock_screen')}
-                  >
-                    {player.isLocked ? <Lock size={16} /> : <Unlock size={16} />}
-                  </button>
-                )}
+                <AnimatePresence>
+                  {player.showControls && !playerError && (
+                    <motion.button
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={(e) => { if (e.detail === 2) player.toggleLock(); }}
+                      className={`absolute top-1/2 left-3 -translate-y-1/2 z-30 p-2 rounded-full border cursor-pointer ${player.isLocked
+                        ? 'bg-[#E2B646]/90 border-[#E2B646] text-black'
+                        : 'bg-black/40 border-zinc-700 text-zinc-300 hover:text-white'
+                        }`}
+                      title={player.isLocked ? t('watch.unlock_screen') : t('watch.lock_screen')}
+                    >
+                      {player.isLocked ? <Lock size={16} /> : <Unlock size={16} />}
+                    </motion.button>
+                  )}
+                </AnimatePresence>
 
                 <AnimatePresence>
                   {player.showControls && !playerError && !player.isLocked && (

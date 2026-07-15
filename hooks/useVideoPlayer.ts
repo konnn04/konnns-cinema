@@ -237,7 +237,8 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
   const handleMouseMove = useCallback(() => {
     // Skip on touch: taps synthesize a mousemove right before click, which
     // raced with the tap-toggle in handlePlayerAreaClick (show then re-hide).
-    if (isMobileDevice() || isLocked) return;
+    // Still allowed while locked -- hover reveals just the lock button then.
+    if (isMobileDevice()) return;
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     controlsTimeoutRef.current = setTimeout(() => {
@@ -246,7 +247,7 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
         return playing;
       });
     }, 3000);
-  }, [isLocked]);
+  }, []);
 
   const toggleControlsVisibility = useCallback(() => {
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
@@ -306,7 +307,12 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
     if (!container) return;
     e.preventDefault();
 
-    if (isLocked) return;
+    if (isLocked) {
+      // Play/seek are blocked while locked -- a tap only reveals/hides the
+      // lock button itself (via the showControls it shares with the overlay).
+      if (e.detail === 1) toggleControlsVisibility();
+      return;
+    }
 
     if (e.detail === 2) {
       if (clickTimeoutRef.current) {
