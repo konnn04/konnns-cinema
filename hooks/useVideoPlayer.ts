@@ -1,14 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useSyncExternalStore, RefObject } from 'react';
+import { usePreferencesStore } from '@/lib/stores/usePreferencesStore';
 
 const noopSubscribe = () => () => {};
 
-// A single tap only toggles play/pause inside this centered box (as a
-// fraction of the container on each axis -- 0.25 margin leaves a 50%-wide,
-// 50%-tall zone in the middle). Taps outside it just toggle control
-// visibility instead, so mis-taps near the edges (common on mobile, where
-// thumbs rest near the screen border) don't accidentally pause playback.
+// Taps only toggle play/pause inside this centered 50%x50% box; outside it
+// they toggle control visibility instead (avoids mis-taps near edges pausing playback).
 const CENTER_TAP_ZONE_MARGIN = 0.25;
 
 function getPipSnapshot() {
@@ -23,10 +21,7 @@ function isMobileDevice(): boolean {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.matchMedia('(pointer: coarse)').matches;
 }
 
-// Screen Orientation API's lock()/unlock() aren't in TS's DOM lib (still
-// experimental/Chromium-only -- notably absent on iOS Safari, which has no
-// equivalent and just relies on the OS's own rotation lock instead). Best
-// effort only: failures are expected on unsupported browsers and swallowed.
+// lock() is experimental/Chromium-only, missing from TS's DOM lib (unlike unlock()).
 type OrientationLockable = ScreenOrientation & { lock?: (orientation: string) => Promise<void> };
 
 interface UseVideoPlayerOptions {
@@ -38,19 +33,21 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [playbackRate, setPlaybackRate] = useState(1);
+  // Seeded from usePreferencesStore so volume/mute/speed carry over between
+  // videos instead of resetting to defaults on every mount.
+  const [volume, setVolume] = useState(() => usePreferencesStore.getState().playerVolume);
+  const [isMuted, setIsMuted] = useState(() => usePreferencesStore.getState().playerMuted);
+  const [playbackRate, setPlaybackRate] = useState(() => usePreferencesStore.getState().playerDefaultSpeed);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const isPipAvailable = useSyncExternalStore(noopSubscribe, getPipSnapshot, getPipServerSnapshot);
   const [showControls, setShowControls] = useState(true);
   const [skipFeedback, setSkipFeedback] = useState<'forward' | 'backward' | null>(null);
+  const [isLocked, setIsLocked] = useState(false);
+  const [bufferedEnd, setBufferedEnd] = useState(0);
 
   const isScrubbingRef = useRef(false);
-  // True only while the CURRENT fullscreen session was entered by rotation
-  // (not a manual tap on the fullscreen button) -- lets the orientation
-  // effect below know it's safe to auto-exit on rotating back to portrait,
-  // without fighting a user who manually stayed in fullscreen.
+  // True only when fullscreen was entered via rotation, not a manual tap --
+  // so rotating back to portrait doesn't exit a manually-entered fullscreen.
   const autoFullscreenRef = useRef(false);
 
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -67,10 +64,18 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
   }, []);
 
-  // Mobile only: rotating to landscape auto-fullscreens the player, rotating
-  // back to portrait auto-exits -- but only for a fullscreen session THIS
-  // effect started (see autoFullscreenRef above), so it doesn't yank someone
-  // out of fullscreen they entered manually while happening to be portrait.
+  // useState initial values only seed React state, not the actual DOM
+  // element's defaults (volume=1, muted=false, rate=1) -- push once on mount.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.volume = volume;
+    video.muted = isMuted;
+    video.playbackRate = playbackRate;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mobile: rotating to landscape auto-fullscreens, rotating back exits.
   useEffect(() => {
     if (!isMobileDevice()) return;
     const mql = window.matchMedia('(orientation: landscape)');
@@ -118,11 +123,18 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
     }
   }, [videoRef]);
 
+  const updateBufferedEnd = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || video.buffered.length === 0) return;
+    setBufferedEnd(video.buffered.end(video.buffered.length - 1));
+  }, [videoRef]);
+
   const handleTimeUpdate = useCallback(() => {
     const video = videoRef.current;
     if (!video || isScrubbingRef.current) return;
     setCurrentTime(video.currentTime);
-  }, [videoRef]);
+    updateBufferedEnd();
+  }, [videoRef, updateBufferedEnd]);
 
   const handleDurationChange = useCallback(() => {
     if (videoRef.current) setDuration(videoRef.current.duration);
@@ -146,12 +158,15 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const video = videoRef.current;
     const vol = parseFloat(e.target.value);
+    const muted = vol === 0;
     setVolume(vol);
-    setIsMuted(vol === 0);
+    setIsMuted(muted);
     if (video) {
       video.volume = vol;
-      video.muted = vol === 0;
+      video.muted = muted;
     }
+    usePreferencesStore.getState().setPlayerVolume(vol);
+    usePreferencesStore.getState().setPlayerMuted(muted);
   }, [videoRef]);
 
   const handleMuteToggle = useCallback(() => {
@@ -159,6 +174,7 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
     setIsMuted((prev) => {
       const next = !prev;
       if (video) video.muted = next;
+      usePreferencesStore.getState().setPlayerMuted(next);
       return next;
     });
   }, [videoRef]);
@@ -166,6 +182,7 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
   const setRate = useCallback((rate: number) => {
     setPlaybackRate(rate);
     if (videoRef.current) videoRef.current.playbackRate = rate;
+    usePreferencesStore.getState().setPlayerDefaultSpeed(rate);
   }, [videoRef]);
 
   const handleFullscreenToggle = useCallback(() => {
@@ -180,10 +197,7 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
         const result = container.requestFullscreen?.();
         const afterEnter = () => {
           setIsFullscreen(true);
-          // Manually entering fullscreen on mobile should still land in
-          // landscape, same as rotating there would -- best-effort only,
-          // since orientation lock needs an active fullscreen element and
-          // isn't supported at all on iOS Safari.
+          // Best-effort landscape lock on mobile; unsupported on iOS Safari.
           if (isMobileDevice()) {
             (screen.orientation as OrientationLockable | undefined)?.lock?.('landscape').catch(() => {});
           }
@@ -221,6 +235,9 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
   }, [videoRef, isPipAvailable]);
 
   const handleMouseMove = useCallback(() => {
+    // Skip on touch: taps synthesize a mousemove right before click, which
+    // raced with the tap-toggle in handlePlayerAreaClick (show then re-hide).
+    if (isMobileDevice() || isLocked) return;
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     controlsTimeoutRef.current = setTimeout(() => {
@@ -229,13 +246,38 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
         return playing;
       });
     }, 3000);
-  }, []);
+  }, [isLocked]);
 
   const toggleControlsVisibility = useCallback(() => {
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     setShowControls((prev) => {
       const next = !prev;
       if (next) {
+        controlsTimeoutRef.current = setTimeout(() => {
+          setIsPlaying((playing) => {
+            if (playing) setShowControls(false);
+            return playing;
+          });
+        }, 3000);
+      }
+      return next;
+    });
+  }, []);
+
+  // Locking hides the overlay outright; unlocking brings it back with the
+  // usual auto-hide-while-playing timer. Only the dedicated lock button
+  // (double-click, kept outside this state) can flip it back.
+  const toggleLock = useCallback(() => {
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = null;
+    }
+    setIsLocked((prev) => {
+      const next = !prev;
+      if (next) {
+        setShowControls(false);
+      } else {
+        setShowControls(true);
         controlsTimeoutRef.current = setTimeout(() => {
           setIsPlaying((playing) => {
             if (playing) setShowControls(false);
@@ -264,6 +306,8 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
     if (!container) return;
     e.preventDefault();
 
+    if (isLocked) return;
+
     if (e.detail === 2) {
       if (clickTimeoutRef.current) {
         clearTimeout(clickTimeoutRef.current);
@@ -290,13 +334,14 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
         clickTimeoutRef.current = null;
       }, 250);
     }
-  }, [containerRef, seekBy, handlePlayToggle, toggleControlsVisibility]);
+  }, [containerRef, seekBy, handlePlayToggle, toggleControlsVisibility, isLocked]);
 
   // Keyboard shortcuts: space, arrows, F (fullscreen), M (mute)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
+      if (isLocked) return;
       const video = videoRef.current;
       if (!video) return;
 
@@ -319,14 +364,19 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
           video.volume = upVol;
           setVolume(upVol);
           setIsMuted(false);
+          usePreferencesStore.getState().setPlayerVolume(upVol);
+          usePreferencesStore.getState().setPlayerMuted(false);
           break;
         }
         case 'ArrowDown': {
           e.preventDefault();
           const downVol = Math.max(0, video.volume - 0.1);
+          const downMuted = downVol === 0;
           video.volume = downVol;
           setVolume(downVol);
-          setIsMuted(downVol === 0);
+          setIsMuted(downMuted);
+          usePreferencesStore.getState().setPlayerVolume(downVol);
+          usePreferencesStore.getState().setPlayerMuted(downMuted);
           break;
         }
         case 'KeyF':
@@ -344,7 +394,7 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [videoRef, handlePlayToggle, handleMuteToggle, handleFullscreenToggle, seekBy]);
+  }, [videoRef, handlePlayToggle, handleMuteToggle, handleFullscreenToggle, seekBy, isLocked]);
 
   const formatTime = useCallback((secs: number) => {
     if (isNaN(secs)) return '00:00';
@@ -358,16 +408,16 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
   return {
     // state
     isPlaying, currentTime, duration, volume, isMuted, playbackRate,
-    isFullscreen, isPipAvailable, showControls, skipFeedback,
+    isFullscreen, isPipAvailable, showControls, skipFeedback, isLocked, bufferedEnd,
     // video element event bindings
-    handleTimeUpdate, handleDurationChange,
+    handleTimeUpdate, handleDurationChange, handleProgress: updateBufferedEnd,
     onPlaying: () => setIsPlaying(true),
     onPause: () => setIsPlaying(false),
     // controls
     handlePlayToggle, handleSeek, handleSeekStart, handleSeekEnd,
     handleVolumeChange, handleMuteToggle, setRate,
     handleFullscreenToggle, triggerPictureInPicture,
-    handleMouseMove, handlePlayerAreaClick, seekBy,
+    handleMouseMove, handlePlayerAreaClick, seekBy, toggleLock,
     formatTime,
   };
 }

@@ -81,6 +81,10 @@ interface UseAudioEnhancerOptions {
 export function useAudioEnhancer({ videoRef, preset }: UseAudioEnhancerOptions) {
   const [error, setError] = useState<string | null>(null);
   const nodesRef = useRef<AudioNodes | null>(null);
+  const presetRef = useRef(preset);
+  useEffect(() => {
+    presetRef.current = preset;
+  }, [preset]);
 
   const isSupported = typeof window !== 'undefined' && !!(window.AudioContext || (window as any).webkitAudioContext);
 
@@ -146,22 +150,33 @@ export function useAudioEnhancer({ videoRef, preset }: UseAudioEnhancerOptions) 
     }
   }, [videoRef, isSupported]);
 
-  useEffect(() => {
-    if (preset === 'none' && !nodesRef.current) {
-      // Don't spin up an AudioContext just to sit at the neutral preset --
-      // wait for the first real activation.
-      return;
-    }
-    // ensureGraph()/applyPreset() are synchronous and only ever set `error`
-    // on an actual failure, which is exactly what an effect is for here:
-    // reacting to the `preset` prop by synchronizing the Web Audio graph.
+  const syncPreset = useCallback(() => {
+    if (presetRef.current === 'none' && !nodesRef.current) return;
     const nodes = ensureGraph();
     if (!nodes) return;
-    if (nodes.ctx.state === 'suspended') {
-      nodes.ctx.resume().catch(() => {});
+    if (nodes.ctx.state === 'suspended') nodes.ctx.resume().catch(() => {});
+    applyPreset(nodes, presetRef.current);
+  }, [ensureGraph]);
+
+  // Building the graph (createMediaElementSource) before the video has ever
+  // played -- e.g. eagerly on mount from a persisted preset -- wedges
+  // playback on some browsers because HLS.js hasn't finished attaching yet.
+  // Defer the first build to the video's own 'playing' event instead.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (!video.paused) {
+      syncPreset();
+      return;
     }
-    applyPreset(nodes, preset);
-  }, [preset, ensureGraph]);
+    video.addEventListener('playing', syncPreset);
+    return () => video.removeEventListener('playing', syncPreset);
+  }, [videoRef, syncPreset]);
+
+  useEffect(() => {
+    if (!nodesRef.current) return;
+    syncPreset();
+  }, [preset, syncPreset]);
 
   return { isSupported, error };
 }

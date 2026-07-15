@@ -8,6 +8,8 @@ interface PreferencesState {
   onboardingCompleted: boolean;
   favoriteGenres: string[];
   playerDefaultSpeed: number;
+  playerVolume: number;
+  playerMuted: boolean;
   playerAutoNext: boolean;
   playerImageEnhance: boolean;
 
@@ -29,6 +31,8 @@ interface PreferencesState {
   setFavoriteGenres: (genres: string[]) => void;
   toggleFavoriteGenre: (slug: string) => void;
   setPlayerDefaultSpeed: (speed: number) => void;
+  setPlayerVolume: (volume: number) => void;
+  setPlayerMuted: (muted: boolean) => void;
   setPlayerAutoNext: (value: boolean) => void;
   setPlayerImageEnhance: (value: boolean) => void;
   setBetaAudioPreset: (preset: AudioPreset) => void;
@@ -44,6 +48,8 @@ export const usePreferencesStore = create<PreferencesState>()(
       onboardingCompleted: false,
       favoriteGenres: [],
       playerDefaultSpeed: 1,
+      playerVolume: 1,
+      playerMuted: false,
       playerAutoNext: true,
       playerImageEnhance: false,
 
@@ -64,6 +70,8 @@ export const usePreferencesStore = create<PreferencesState>()(
           : [...state.favoriteGenres, slug],
       })),
       setPlayerDefaultSpeed: (speed) => set({ playerDefaultSpeed: speed }),
+      setPlayerVolume: (volume) => set({ playerVolume: volume }),
+      setPlayerMuted: (muted) => set({ playerMuted: muted }),
       setPlayerAutoNext: (value) => set({ playerAutoNext: value }),
       setPlayerImageEnhance: (value) => set({ playerImageEnhance: value }),
       setBetaAudioPreset: (preset) => set({ betaAudioPreset: preset }),

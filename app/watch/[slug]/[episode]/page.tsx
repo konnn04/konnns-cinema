@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef, use, useCallback } from 'react';
+import { useState, useEffect, useRef, use, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { X, Heart, Bell, BellOff, Star, Info, MoveLeft } from 'lucide-react';
+import { X, Heart, Bell, BellOff, Star, Info, MoveLeft, Lock, Unlock } from 'lucide-react';
 import Hls from 'hls.js';
 import { motion, AnimatePresence } from 'motion/react';
 import { api, MovieDetail, ServerEpisode, ServerData } from '@/lib/api';
@@ -61,8 +61,9 @@ export default function WatchPage({ params }: WatchPageProps) {
   const [episodes, setEpisodes] = useState<ServerEpisode[]>([]);
   const [animeInfo, setAnimeInfo] = useState<AnimeInfo | null>(null);
   const [activeServerIdx, setActiveServerIdx] = useState(initialServerIdx);
-  const [currentEpisode, setCurrentEpisode] = useState<ServerData | null>(null);
-  const [nextEpisode, setNextEpisode] = useState<ServerData | null>(null);
+  // Bumped by the error overlay's retry button to force the HLS-init effect
+  // to re-run even when currentEpisode itself hasn't changed.
+  const [retryNonce, setRetryNonce] = useState(0);
 
   const [showAutoNext, setShowAutoNext] = useState(false);
   const [autoNextCounter, setAutoNextCounter] = useState(5);
@@ -210,27 +211,18 @@ export default function WatchPage({ params }: WatchPageProps) {
     toggleReminderInStore(movie);
   };
 
+  // Only the movie changes require a network round-trip -- episode/server
+  // switches just pick a different entry out of data we already have.
   useEffect(() => {
-    const fetchWatchData = async () => {
+    const fetchMovieData = async () => {
       try {
         const res = await api.getMovieDetail(slug);
         if (res.status && res.movie) {
           setMovie(res.movie);
-          const serverEpisodes = res.episodes || [];
-          setEpisodes(serverEpisodes);
+          setEpisodes(res.episodes || []);
 
           if (res.movie.type === 'hoathinh' && res.movie.origin_name) {
             searchAnime(res.movie.origin_name).then(setAnimeInfo);
-          }
-
-          const activeServer = serverEpisodes[activeServerIdx] || serverEpisodes[0];
-          if (activeServer && activeServer.server_data) {
-            const index = activeServer.server_data.findIndex(e => e.slug === episodeSlug);
-            const activeEp = activeServer.server_data[index] || activeServer.server_data[0];
-            setCurrentEpisode(activeEp);
-
-            const nextEp = activeServer.server_data[index + 1] || null;
-            setNextEpisode(nextEp);
           }
         }
       } catch (err) {
@@ -239,8 +231,19 @@ export default function WatchPage({ params }: WatchPageProps) {
       }
     };
 
-    fetchWatchData();
-  }, [slug, episodeSlug, activeServerIdx]);
+    fetchMovieData();
+  }, [slug]);
+
+  const activeServerData = (episodes[activeServerIdx] || episodes[0])?.server_data;
+  const episodeIndex = activeServerData?.findIndex(e => e.slug === episodeSlug) ?? -1;
+  const currentEpisode = useMemo<ServerData | null>(
+    () => (activeServerData ? activeServerData[episodeIndex] || activeServerData[0] || null : null),
+    [activeServerData, episodeIndex]
+  );
+  const nextEpisode = useMemo<ServerData | null>(
+    () => (activeServerData ? activeServerData[episodeIndex + 1] || null : null),
+    [activeServerData, episodeIndex]
+  );
 
   const handleServerChange = (index: number) => {
     setActiveServerIdx(index);
@@ -337,7 +340,7 @@ export default function WatchPage({ params }: WatchPageProps) {
         hlsInstanceRef.current = null;
       }
     };
-  }, [currentEpisode, restorePlayProgress, isGated]);
+  }, [currentEpisode, restorePlayProgress, isGated, retryNonce]);
 
   const handleTimeUpdate = () => {
     player.handleTimeUpdate();
@@ -454,14 +457,14 @@ export default function WatchPage({ params }: WatchPageProps) {
                 onClick={canControlVideo ? player.handlePlayerAreaClick : undefined}
                 className={`relative overflow-hidden bg-black border border-zinc-900 group shadow-2xl cursor-none ${isTheaterMode ? 'w-full max-w-[1800px] aspect-video max-h-[92vh] rounded-none' : 'aspect-video w-full rounded-none'
                   }`}
-                style={{ cursor: player.showControls ? 'default' : 'none' }}
+                style={{ cursor: (player.showControls || player.isLocked) ? 'default' : 'none' }}
               >
                 <video
                   ref={videoRef}
                   crossOrigin="anonymous"
                   onTimeUpdate={handleTimeUpdate}
                   onDurationChange={player.handleDurationChange}
-                  onSeeking={() => setIsBuffering(true)}
+                  onProgress={player.handleProgress}
                   onSeeked={() => {
                     setIsBuffering(false);
                     if (partyRoomCode && canControlVideo && videoRef.current) {
@@ -514,7 +517,7 @@ export default function WatchPage({ params }: WatchPageProps) {
                     message={playerError}
                     onRetry={() => {
                       setPlayerError(null);
-                      setCurrentEpisode((prev) => (prev ? { ...prev } : prev));
+                      setRetryNonce((n) => n + 1);
                     }}
                   />
                 )}
@@ -543,8 +546,21 @@ export default function WatchPage({ params }: WatchPageProps) {
 
                 <EpisodeChangePrompt />
 
+                {!playerError && (
+                  <button
+                    onClick={(e) => { if (e.detail === 2) player.toggleLock(); }}
+                    className={`absolute top-3 left-3 z-30 p-2 rounded-full border transition-all cursor-pointer ${player.isLocked
+                      ? 'bg-[#E2B646]/90 border-[#E2B646] text-black opacity-70 hover:opacity-100'
+                      : 'bg-black/40 border-zinc-700 text-zinc-300 opacity-60 hover:opacity-100'
+                      }`}
+                    title={player.isLocked ? t('watch.unlock_screen') : t('watch.lock_screen')}
+                  >
+                    {player.isLocked ? <Lock size={16} /> : <Unlock size={16} />}
+                  </button>
+                )}
+
                 <AnimatePresence>
-                  {player.showControls && !playerError && (
+                  {player.showControls && !playerError && !player.isLocked && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -571,6 +587,7 @@ export default function WatchPage({ params }: WatchPageProps) {
                       <PlayerControlBar
                         currentTime={player.currentTime}
                         duration={player.duration}
+                        bufferedEnd={player.bufferedEnd}
                         formatTime={player.formatTime}
                         onSeek={canControlVideo ? player.handleSeek : noopSeek}
                         onSeekStart={canControlVideo ? player.handleSeekStart : noop}

@@ -7,6 +7,7 @@ import PlayerSettingsPopover from './PlayerSettingsPopover';
 interface PlayerControlBarProps {
   currentTime: number;
   duration: number;
+  bufferedEnd: number;
   formatTime: (secs: number) => string;
   onSeek: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSeekStart: () => void;
@@ -44,7 +45,7 @@ interface PlayerControlBarProps {
 }
 
 export default function PlayerControlBar({
-  currentTime, duration, formatTime,
+  currentTime, duration, bufferedEnd, formatTime,
   onSeek, onSeekStart, onSeekEnd,
   isPlaying, onPlayToggle,
   isMuted, volume, onVolumeChange, onMuteToggle,
@@ -61,19 +62,26 @@ export default function PlayerControlBar({
       {/* Interactive Timeline seek bar */}
       <div className="flex items-center space-x-3 text-xs font-mono font-bold text-zinc-400">
         <span>{formatTime(currentTime)}</span>
-        <input
-          type="range"
-          min={0}
-          max={duration || 100}
-          step={0.1}
-          value={currentTime}
-          onChange={onSeek}
-          onMouseDown={onSeekStart}
-          onMouseUp={onSeekEnd}
-          onTouchStart={onSeekStart}
-          onTouchEnd={onSeekEnd}
-          className="flex-1 accent-[#E2B646] h-1 rounded-none cursor-pointer bg-zinc-800"
-        />
+        <div className="relative flex-1 h-1">
+          <div className="absolute inset-0 bg-zinc-800 pointer-events-none" />
+          <div
+            className="absolute inset-y-0 left-0 bg-zinc-600 pointer-events-none"
+            style={{ width: `${duration > 0 ? Math.min(100, (bufferedEnd / duration) * 100) : 0}%` }}
+          />
+          <input
+            type="range"
+            min={0}
+            max={duration || 100}
+            step={0.1}
+            value={currentTime}
+            onChange={onSeek}
+            onMouseDown={onSeekStart}
+            onMouseUp={onSeekEnd}
+            onTouchStart={onSeekStart}
+            onTouchEnd={onSeekEnd}
+            className="absolute inset-0 w-full h-1 accent-[#E2B646] rounded-none cursor-pointer bg-transparent"
+          />
+        </div>
         <span>{formatTime(duration)}</span>
       </div>
 

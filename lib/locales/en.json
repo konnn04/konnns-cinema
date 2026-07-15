@@ -115,6 +115,8 @@
   "settings.nuke_warning": "This action will clear all favorites, watch logs, and reset settings.",
   "settings.language_label": "Application Language",
   "settings.language_desc": "Switch display language system-wide",
+  "watch.lock_screen": "Lock screen (double-click)",
+  "watch.unlock_screen": "Unlock screen (double-click)",
   "watch.servers": "STREAM SERVERS",
   "watch.server_badge": "Source",
   "watch.recommended": "Recommended",

@@ -1,10 +1,12 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import MovieCard from './MovieCard';
 import { MovieItem } from '@/lib/api';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface MovieRowProps {
   title: string;
@@ -12,9 +14,11 @@ interface MovieRowProps {
   pathImage?: string;
   onFavoriteChange?: () => void;
   icon?: React.ReactNode;
+  viewAllHref?: string;
 }
 
-export default function MovieRow({ title, movies, pathImage, onFavoriteChange, icon }: MovieRowProps) {
+export default function MovieRow({ title, movies, pathImage, onFavoriteChange, icon, viewAllHref }: MovieRowProps) {
+  const { t } = useLanguage();
   const rowRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -71,6 +75,15 @@ export default function MovieRow({ title, movies, pathImage, onFavoriteChange, i
             {title}
           </h2>
         </div>
+        {viewAllHref && (
+          <Link
+            href={viewAllHref}
+            className="flex items-center gap-1 text-xs sm:text-sm font-sans text-zinc-400 hover:text-[#E2B646] transition-colors shrink-0"
+          >
+            {t('home.view_all')}
+            <ChevronRight size={16} />
+          </Link>
+        )}
       </div>
 
       <div className="relative">

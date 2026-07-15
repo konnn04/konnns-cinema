@@ -290,7 +290,7 @@ export function OGTicket({ name, originName, year, quality, genre, episode, post
                             textTransform: 'uppercase',
                         }}
                     >
-                        Konnn's Cinema
+                        Konnn&apos;s Cinema
                     </div>
                 </div>
             </div>

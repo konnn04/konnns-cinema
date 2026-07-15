@@ -115,6 +115,8 @@
   "settings.nuke_warning": "Hành động này sẽ xóa sạch danh sách yêu thích, lịch sử xem và cài đặt của bạn.",
   "settings.language_label": "Ngôn ngữ ứng dụng",
   "settings.language_desc": "Chuyển đổi ngôn ngữ hiển thị trên toàn hệ thống",
+  "watch.lock_screen": "Khóa màn hình (nhấp đúp)",
+  "watch.unlock_screen": "Mở khóa màn hình (nhấp đúp)",
   "watch.servers": "DANH SÁCH MÁY CHỦ",
   "watch.server_badge": "Nguồn",
   "watch.recommended": "Đề xuất",

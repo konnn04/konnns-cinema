@@ -28,7 +28,7 @@ export default function HomePage() {
   const [moviesList, setMoviesList] = useState<MovieItem[]>([]);
   const [seriesList, setSeriesList] = useState<MovieItem[]>([]);
   const [animeList, setAnimeList] = useState<MovieItem[]>([]);
-  const [personalizedRow, setPersonalizedRow] = useState<{ title: string; items: MovieItem[] } | null>(null);
+  const [personalizedRow, setPersonalizedRow] = useState<{ title: string; items: MovieItem[]; href: string } | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
@@ -74,6 +74,7 @@ export default function HomePage() {
           setPersonalizedRow({
             title: `${personalizedLabel}: ${translateGenre(ANIME_PSEUDO_GENRE.name)}`,
             items: anime.items,
+            href: '/search?type=hoat-hinh',
           });
         } else {
           try {
@@ -84,6 +85,7 @@ export default function HomePage() {
             setPersonalizedRow({
               title,
               items: genreMovies.items,
+              href: `/search?genre=${primaryGenreSlug}`,
             });
           } catch {
           }
@@ -284,6 +286,7 @@ export default function HomePage() {
                       title={personalizedRow.title}
                       movies={personalizedRow.items}
                       icon={<Sparkles className="w-5 h-5 text-[#E2B646]" />}
+                      viewAllHref={personalizedRow.href}
                     />
                   )}
 
@@ -292,24 +295,28 @@ export default function HomePage() {
                     title={t('home.recently_updated')}
                     movies={recentlyUpdated}
                     icon={<Flame className="w-5 h-5 text-brand-orange" />}
+                    viewAllHref="/search"
                   />
 
                   <MovieRow
                     title={t('home.featured_movies')}
                     movies={moviesList}
                     icon={<Film className="w-5 h-5 text-[#E2B646]" />}
+                    viewAllHref="/search?type=phim-le"
                   />
 
                   <MovieRow
                     title={t('home.series')}
                     movies={seriesList}
                     icon={<Tv className="w-5 h-5 text-brand-orange" />}
+                    viewAllHref="/search?type=phim-bo"
                   />
 
                   <MovieRow
                     title={t('home.anime')}
                     movies={animeList}
                     icon={<Sparkles className="w-5 h-5 text-[#E2B646]" />}
+                    viewAllHref="/search?type=hoat-hinh"
                   />
                 </div>
               </div>
