@@ -105,6 +105,13 @@ export default function DownloadPage({ params }: DownloadPageProps) {
             </button>
           )}
 
+          {status === 'choosing_location' && (
+            <span className="flex items-center gap-2 text-xs font-mono text-zinc-400">
+              <Loader2 size={13} className="animate-spin" />
+              {t('download.status_choosing_location')}
+            </span>
+          )}
+
           {isBusy && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-mono text-zinc-400">
