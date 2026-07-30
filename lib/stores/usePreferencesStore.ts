@@ -4,6 +4,8 @@ import type { AudioPreset } from '@/hooks/useAudioEnhancer';
 import type { UpscaleMode } from '@/lib/webgpu/upscale';
 import type { FrameInterpolationMode } from '@/lib/webgpu/frameInterpolation';
 
+export type TVModeOverride = 'auto' | 'on' | 'off';
+
 interface PreferencesState {
   onboardingCompleted: boolean;
   favoriteGenres: string[];
@@ -12,6 +14,7 @@ interface PreferencesState {
   playerMuted: boolean;
   playerAutoNext: boolean;
   playerImageEnhance: boolean;
+  tvModeOverride: TVModeOverride;
 
   // BETA lab features -- see components/player/BetaLabMenu.tsx
   betaAudioPreset: AudioPreset;
@@ -35,6 +38,7 @@ interface PreferencesState {
   setPlayerMuted: (muted: boolean) => void;
   setPlayerAutoNext: (value: boolean) => void;
   setPlayerImageEnhance: (value: boolean) => void;
+  setTvModeOverride: (mode: TVModeOverride) => void;
   setBetaAudioPreset: (preset: AudioPreset) => void;
   setBetaFsrUpscale: (value: boolean) => void;
   setBetaFsrUpscaleMode: (mode: UpscaleMode) => void;
@@ -52,6 +56,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       playerMuted: false,
       playerAutoNext: true,
       playerImageEnhance: false,
+      tvModeOverride: 'auto',
 
       betaAudioPreset: 'none',
       betaFsrUpscale: false,
@@ -74,6 +79,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       setPlayerMuted: (muted) => set({ playerMuted: muted }),
       setPlayerAutoNext: (value) => set({ playerAutoNext: value }),
       setPlayerImageEnhance: (value) => set({ playerImageEnhance: value }),
+      setTvModeOverride: (mode) => set({ tvModeOverride: mode }),
       setBetaAudioPreset: (preset) => set({ betaAudioPreset: preset }),
       // FSR upscale and frame interpolation both take over the canvas output,
       // so enabling one turns the other off rather than trying to layer them.

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useSyncExternalStore, RefObject } from 'react';
 import { usePreferencesStore } from '@/lib/stores/usePreferencesStore';
+import { useIsTV } from '@/hooks/use-tv';
 
 const noopSubscribe = () => () => {};
 
@@ -24,12 +25,15 @@ function isMobileDevice(): boolean {
 // lock() is experimental/Chromium-only, missing from TS's DOM lib (unlike unlock()).
 type OrientationLockable = ScreenOrientation & { lock?: (orientation: string) => Promise<void> };
 
+const NAV_CONFLICTING_KEYS = new Set(['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
+
 interface UseVideoPlayerOptions {
   videoRef: RefObject<HTMLVideoElement | null>;
   containerRef: RefObject<HTMLDivElement | null>;
 }
 
 export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions) {
+  const isTV = useIsTV();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -155,9 +159,8 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
     isScrubbingRef.current = false;
   }, []);
 
-  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const setVolumeLevel = useCallback((vol: number) => {
     const video = videoRef.current;
-    const vol = parseFloat(e.target.value);
     const muted = vol === 0;
     setVolume(vol);
     setIsMuted(muted);
@@ -168,6 +171,10 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
     usePreferencesStore.getState().setPlayerVolume(vol);
     usePreferencesStore.getState().setPlayerMuted(muted);
   }, [videoRef]);
+
+  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setVolumeLevel(parseFloat(e.target.value));
+  }, [setVolumeLevel]);
 
   const handleMuteToggle = useCallback(() => {
     const video = videoRef.current;
@@ -348,6 +355,14 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
       if (isLocked) return;
+      // On TV, spatial-nav (hooks/use-tv.tsx) owns Space/Arrow* entirely --
+      // via dedicated focus handlers, not this global listener. It can't be
+      // gated by document.activeElement here: `stopPropagation()` in the
+      // spatial-nav library only blocks the event from reaching other DOM
+      // nodes, not sibling listeners on this same `window` target, and the
+      // focus-tracked element (a plain, non-tabindex container) never
+      // actually receives real DOM focus for activeElement to reflect.
+      if (isTV && NAV_CONFLICTING_KEYS.has(e.code)) return;
       const video = videoRef.current;
       if (!video) return;
 
@@ -400,7 +415,7 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [videoRef, handlePlayToggle, handleMuteToggle, handleFullscreenToggle, seekBy, isLocked]);
+  }, [videoRef, handlePlayToggle, handleMuteToggle, handleFullscreenToggle, seekBy, isLocked, isTV]);
 
   const formatTime = useCallback((secs: number) => {
     if (isNaN(secs)) return '00:00';
@@ -421,9 +436,10 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
     onPause: () => setIsPlaying(false),
     // controls
     handlePlayToggle, handleSeek, handleSeekStart, handleSeekEnd,
-    handleVolumeChange, handleMuteToggle, setRate,
+    handleVolumeChange, handleMuteToggle, setVolumeLevel, setRate,
     handleFullscreenToggle, triggerPictureInPicture,
     handleMouseMove, handlePlayerAreaClick, seekBy, toggleLock,
+    toggleControlsVisibility,
     formatTime,
   };
 }

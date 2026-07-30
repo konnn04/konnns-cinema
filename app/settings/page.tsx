@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Sliders, Sparkles, Check, RefreshCw, Trash2, ArrowLeft, ShieldAlert, Play, Heart, Bell, Languages, UserCircle, LogOut } from 'lucide-react';
+import { Sliders, Sparkles, Check, RefreshCw, Trash2, ArrowLeft, ShieldAlert, Play, Heart, Bell, Languages, UserCircle, LogOut, Tv } from 'lucide-react';
 import { api, CategoryItem, ANIME_PSEUDO_GENRE } from '@/lib/api';
 import { isAdultVerified, setAdultVerified } from '@/lib/adult';
 import { useAdultContentStore } from '@/lib/stores/useAdultContentStore';
@@ -34,6 +34,8 @@ export default function SettingsPage() {
   const setPlayerAutoNext = usePreferencesStore((s) => s.setPlayerAutoNext);
   const imageEnhance = usePreferencesStore((s) => s.playerImageEnhance);
   const setPlayerImageEnhance = usePreferencesStore((s) => s.setPlayerImageEnhance);
+  const tvModeOverride = usePreferencesStore((s) => s.tvModeOverride);
+  const setTvModeOverride = usePreferencesStore((s) => s.setTvModeOverride);
 
   const adultUnblur = useAdultContentStore((s) => s.unblurEnabled);
   const setAdultUnblurEnabled = useAdultContentStore((s) => s.setUnblurEnabled);
@@ -171,6 +173,32 @@ export default function SettingsPage() {
                   }`}
                 >
                   {lang}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 bg-black/40 border border-zinc-850 rounded-none space-y-4">
+          <h2 className="font-serif font-black italic text-base text-white tracking-wide uppercase flex items-center space-x-2">
+            <Tv size={16} className="text-[#E2B646]" />
+            <span>{t('settings.tv_mode_label')}</span>
+          </h2>
+
+          <div className="flex items-center justify-between p-4 bg-zinc-900/40 border border-zinc-850 rounded-none">
+            <p className="text-[11px] text-zinc-500 font-sans max-w-md">{t('settings.tv_mode_desc')}</p>
+            <div className="flex gap-2 shrink-0 ml-4">
+              {(['auto', 'on', 'off'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setTvModeOverride(mode)}
+                  className={`px-4 py-2 rounded-none text-xs font-mono font-bold uppercase border transition-colors cursor-pointer ${
+                    tvModeOverride === mode
+                      ? 'border-[#E2B646] bg-[#E2B646]/10 text-white'
+                      : 'border-zinc-850 bg-zinc-950 text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  {t(`settings.tv_mode_${mode}`)}
                 </button>
               ))}
             </div>

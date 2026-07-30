@@ -11,6 +11,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.4.0
         version: 5.4.0(react-hook-form@7.81.0(react@19.2.7))
+      '@noriginmedia/norigin-spatial-navigation':
+        specifier: ^3.2.1
+        version: 3.2.1(react@19.2.7)
       '@websr/websr':
         specifier: ^0.0.16
         version: 0.0.16
@@ -942,6 +945,17 @@ packages:
   '@nolyfill/is-core-module@1.0.39':
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
+
+  '@noriginmedia/norigin-spatial-navigation-core@4.0.0':
+    resolution: {integrity: sha512-EnpklqZvVSKvyi63oiT9772PVzYg8Swj6SrGARBcz6Pfy4r8JB4sAorrTpp8nyA8d6ApVWnXqz044YdYZWzIxw==}
+
+  '@noriginmedia/norigin-spatial-navigation-react@3.2.1':
+    resolution: {integrity: sha512-p4DHo5rZV/DnQK4aOXeDXieuihAes65oeCfDlt/JJUh0OLqv/Wx7mJWsWKRPTNzT4mkIgWaM15VrSiYuFA0dhg==}
+    peerDependencies:
+      react: '>=16.8.0'
+
+  '@noriginmedia/norigin-spatial-navigation@3.2.1':
+    resolution: {integrity: sha512-D+3vX4fyFdq0zg1MOgK5SnOikh7GhnXzzXt46z/AzJ52AIyLL6eyWmHFgABA9J0fZF9c1ELSs3iVZXTM3QvYXA==}
 
   '@opentelemetry/api@1.9.1':
     resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
@@ -3073,6 +3087,9 @@ packages:
   locate-path@6.0.0:
     resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
     engines: {node: '>=10'}
+
+  lodash-es@4.18.1:
+    resolution: {integrity: sha512-J8xewKD/Gk22OZbhpOVSwcs60zhd95ESDwezOFuA3/099925PdHJ7OFHNTGtajL3AlZkykD32HykiMo+BIBI8A==}
 
   lodash._objecttypes@2.4.1:
     resolution: {integrity: sha512-XpqGh1e7hhkOzftBfWE7zt+Yn9mVHFkDhicVttvKLsoCMLVVL+xTQjfjB4X4vtznauxv0QZ5ZAeqjvat0dh62Q==}
@@ -5443,6 +5460,23 @@ snapshots:
       fastq: 1.20.1
 
   '@nolyfill/is-core-module@1.0.39': {}
+
+  '@noriginmedia/norigin-spatial-navigation-core@4.0.0':
+    dependencies:
+      lodash-es: 4.18.1
+
+  '@noriginmedia/norigin-spatial-navigation-react@3.2.1(react@19.2.7)':
+    dependencies:
+      '@noriginmedia/norigin-spatial-navigation-core': 4.0.0
+      lodash-es: 4.18.1
+      react: 19.2.7
+
+  '@noriginmedia/norigin-spatial-navigation@3.2.1(react@19.2.7)':
+    dependencies:
+      '@noriginmedia/norigin-spatial-navigation-core': 4.0.0
+      '@noriginmedia/norigin-spatial-navigation-react': 3.2.1(react@19.2.7)
+    transitivePeerDependencies:
+      - react
 
   '@opentelemetry/api@1.9.1': {}
 
@@ -7912,6 +7946,8 @@ snapshots:
   locate-path@6.0.0:
     dependencies:
       p-locate: 5.0.0
+
+  lodash-es@4.18.1: {}
 
   lodash._objecttypes@2.4.1: {}
 

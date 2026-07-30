@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant tv (&:where([data-tv-mode="true"] *));
+
 @theme {
   --color-brand-red: #E2B646;
   --color-brand-orange: #8c6a1e;
@@ -73,12 +75,22 @@
   /* Scanline effect */
   .scanline {
     background: linear-gradient(
-      rgba(10, 10, 10, 0) 50%, 
+      rgba(10, 10, 10, 0) 50%,
       rgba(0, 0, 0, 0.3) 50%
     );
     background-size: 100% 4px;
     z-index: 2;
   }
+
+  .tv-focus {
+    outline: 3px solid #E2B646;
+    outline-offset: 4px;
+    box-shadow: 0 0 24px -4px rgba(226, 182, 70, 0.5);
+  }
+}
+
+html[data-tv-mode="true"] {
+  font-size: 112.5%;
 }
 
 /* Base custom styles to ensure native-like touch and smooth transitions */

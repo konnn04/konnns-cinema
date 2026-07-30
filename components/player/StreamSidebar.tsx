@@ -1,8 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { ServerEpisode } from '@/lib/api';
+import { ServerEpisode, ServerData } from '@/lib/api';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useTVFocusable } from '@/hooks/useTVFocusable';
+import FocusableButton from '@/components/tv/FocusableButton';
+import { cn } from '@/lib/utils';
 
 interface StreamSidebarProps {
   episodes: ServerEpisode[];
@@ -10,9 +13,32 @@ interface StreamSidebarProps {
   onServerChange: (index: number) => void;
   slug: string;
   episodeSlug: string;
+  episodeGridClassName?: string;
 }
 
-export default function StreamSidebar({ episodes, activeServerIdx, onServerChange, slug, episodeSlug }: StreamSidebarProps) {
+function EpisodeButton({ ep, slug, activeServerIdx, isActive }: { ep: ServerData; slug: string; activeServerIdx: number; isActive: boolean }) {
+  const { ref, tvFocusClassName } = useTVFocusable<HTMLButtonElement | null>();
+
+  return (
+    <Link href={`/watch/${slug}/${ep.slug}?server=${activeServerIdx}`} className="col-span-1">
+      <button
+        ref={(node) => { ref.current = node; }}
+        className={cn(
+          `w-full py-2.5 text-center rounded-none text-xs font-mono font-bold border transition-all cursor-pointer ${
+            isActive
+              ? 'border-[#E2B646] bg-[#E2B646]/20 text-[#E2B646] shadow-inner'
+              : 'border-zinc-850 bg-zinc-900/15 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'
+          }`,
+          tvFocusClassName
+        )}
+      >
+        {ep.name}
+      </button>
+    </Link>
+  );
+}
+
+export default function StreamSidebar({ episodes, activeServerIdx, onServerChange, slug, episodeSlug, episodeGridClassName = 'grid-cols-4' }: StreamSidebarProps) {
   const { t } = useLanguage();
   const activeServerData = episodes[activeServerIdx]?.server_data;
 
@@ -23,7 +49,7 @@ export default function StreamSidebar({ episodes, activeServerIdx, onServerChang
           <span className="text-[10px] uppercase font-serif tracking-[0.2em] font-bold text-[#E2B646]">{t('watch.server_label')}</span>
           <div className="grid grid-cols-2 gap-2">
             {episodes.map((server, idx) => (
-              <button
+              <FocusableButton
                 key={server.server_name}
                 onClick={() => onServerChange(idx)}
                 className={`py-3 px-4 text-center rounded-none font-sans text-xs font-bold border transition-all cursor-pointer ${
@@ -33,7 +59,7 @@ export default function StreamSidebar({ episodes, activeServerIdx, onServerChang
                 }`}
               >
                 {server.server_name}
-              </button>
+              </FocusableButton>
             ))}
           </div>
         </div>
@@ -43,23 +69,16 @@ export default function StreamSidebar({ episodes, activeServerIdx, onServerChang
           <span className="text-[10px] uppercase font-serif tracking-[0.2em] font-bold text-[#E2B646]">{t('watch.episode_catalog')}</span>
         <div className="p-4 bg-black/40 border border-zinc-850 rounded-none max-h-[380px] overflow-y-auto no-scrollbar">
           {activeServerData && activeServerData.length > 0 ? (
-            <div className="grid grid-cols-4 gap-2">
-              {activeServerData.map((ep) => {
-                const isActive = ep.slug === episodeSlug;
-                return (
-                  <Link key={ep.slug} href={`/watch/${slug}/${ep.slug}?server=${activeServerIdx}`} className="col-span-1">
-                    <button
-                      className={`w-full py-2.5 text-center rounded-none text-xs font-mono font-bold border transition-all cursor-pointer ${
-                        isActive
-                          ? 'border-[#E2B646] bg-[#E2B646]/20 text-[#E2B646] shadow-inner'
-                          : 'border-zinc-850 bg-zinc-900/15 text-zinc-500 hover:border-zinc-800 hover:text-zinc-300'
-                      }`}
-                    >
-                      {ep.name}
-                    </button>
-                  </Link>
-                );
-              })}
+            <div className={cn('grid gap-2', episodeGridClassName)}>
+              {activeServerData.map((ep) => (
+                <EpisodeButton
+                  key={ep.slug}
+                  ep={ep}
+                  slug={slug}
+                  activeServerIdx={activeServerIdx}
+                  isActive={ep.slug === episodeSlug}
+                />
+              ))}
             </div>
           ) : (
             <p className="p-6 text-center text-xs text-zinc-600">{t('watch.no_episodes_parsed')}</p>

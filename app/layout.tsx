@@ -3,6 +3,7 @@ import {Outfit, Inter, JetBrains_Mono, Be_Vietnam_Pro} from 'next/font/google';
 import {LanguageProvider} from '@/hooks/useLanguage';
 import {AuthProvider} from '@/hooks/useAuth';
 import {WatchPartyProvider} from '@/hooks/useWatchParty';
+import {TVModeProvider} from '@/hooks/use-tv';
 import BackToTop from '@/components/BackToTop';
 import ToastManager from '@/components/ToastManager';
 import CloudSyncManager from '@/components/CloudSyncManager';
@@ -59,11 +60,13 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
         <LanguageProvider>
           <AuthProvider>
             <CloudSyncManager />
-            <WatchPartyProvider>
-              {children}
-              <BackToTop />
-              <ToastManager />
-            </WatchPartyProvider>
+            <TVModeProvider>
+              <WatchPartyProvider>
+                {children}
+                <BackToTop />
+                <ToastManager />
+              </WatchPartyProvider>
+            </TVModeProvider>
           </AuthProvider>
         </LanguageProvider>
       </body>

@@ -2,6 +2,7 @@
 
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Expand, Shrink, Layers, SkipForward } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import FocusableButton from '@/components/tv/FocusableButton';
 import PlayerSettingsPopover from './PlayerSettingsPopover';
 
 interface PlayerControlBarProps {
@@ -15,11 +16,13 @@ interface PlayerControlBarProps {
 
   isPlaying: boolean;
   onPlayToggle: () => void;
+  playButtonFocusKey?: string;
 
   isMuted: boolean;
   volume: number;
   onVolumeChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onMuteToggle: () => void;
+  hideVolumeControl?: boolean;
 
   showAnimeSkip: boolean;
   onSkipOpEd: () => void;
@@ -37,6 +40,7 @@ interface PlayerControlBarProps {
 
   isTheaterMode: boolean;
   onTheaterToggle: () => void;
+  hideTheaterToggle?: boolean;
 
   webgpuSupported: boolean;
   fsrError: string | null;
@@ -47,13 +51,13 @@ interface PlayerControlBarProps {
 export default function PlayerControlBar({
   currentTime, duration, bufferedEnd, formatTime,
   onSeek, onSeekStart, onSeekEnd,
-  isPlaying, onPlayToggle,
-  isMuted, volume, onVolumeChange, onMuteToggle,
+  isPlaying, onPlayToggle, playButtonFocusKey,
+  isMuted, volume, onVolumeChange, onMuteToggle, hideVolumeControl,
   showAnimeSkip, onSkipOpEd,
   isSharpenEnabled, onToggleSharpen, playbackRate, onSetRate,
   isPipAvailable, onTriggerPip,
   isFullscreen, onFullscreenToggle,
-  isTheaterMode, onTheaterToggle,
+  isTheaterMode, onTheaterToggle, hideTheaterToggle,
   webgpuSupported, fsrError, frameInterpolationError, audioError,
 }: PlayerControlBarProps) {
   const { t } = useLanguage();
@@ -88,40 +92,43 @@ export default function PlayerControlBar({
       {/* Button Panel (Play, Volume, PiP, Fullscreen, Speed/Settings) */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center space-x-4">
-          <button
+          <FocusableButton
+            focusKey={playButtonFocusKey}
             onClick={onPlayToggle}
             className="p-1.5 hover:bg-zinc-800/50 rounded-none text-zinc-300 hover:text-white transition-colors cursor-pointer"
           >
             {isPlaying ? <Pause size={18} /> : <Play size={18} className="fill-current" />}
-          </button>
+          </FocusableButton>
 
-          <div className="flex items-center space-x-2 group/volume">
-            <button
-              onClick={onMuteToggle}
-              className="p-1.5 hover:bg-zinc-800/50 rounded-none text-zinc-300 hover:text-white transition-colors cursor-pointer"
-            >
-              {isMuted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.1}
-              value={isMuted ? 0 : volume}
-              onChange={onVolumeChange}
-              className="w-16 accent-[#E2B646] h-1 rounded-none cursor-pointer bg-zinc-800 opacity-0 group-hover/volume:opacity-100 transition-opacity"
-            />
-          </div>
+          {!hideVolumeControl && (
+            <div className="flex items-center space-x-2 group/volume">
+              <FocusableButton
+                onClick={onMuteToggle}
+                className="p-1.5 hover:bg-zinc-800/50 rounded-none text-zinc-300 hover:text-white transition-colors cursor-pointer"
+              >
+                {isMuted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+              </FocusableButton>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.1}
+                value={isMuted ? 0 : volume}
+                onChange={onVolumeChange}
+                className="w-16 accent-[#E2B646] h-1 rounded-none cursor-pointer bg-zinc-800 opacity-0 group-hover/volume:opacity-100 transition-opacity"
+              />
+            </div>
+          )}
 
           {showAnimeSkip && (
-            <button
+            <FocusableButton
               onClick={onSkipOpEd}
               className="hidden sm:flex items-center space-x-1 px-2.5 py-1.5 bg-yellow-500/10 border border-[#E2B646]/30 hover:border-[#E2B646] text-[#E2B646] text-[10px] font-mono font-black tracking-widest uppercase cursor-pointer transition-all"
               title="Skip Opening / Ending (90s)"
             >
               <SkipForward size={11} />
               <span>{t('player.skip_op_ed')}</span>
-            </button>
+            </FocusableButton>
           )}
         </div>
 
@@ -138,30 +145,32 @@ export default function PlayerControlBar({
           />
 
           {isPipAvailable && (
-            <button
+            <FocusableButton
               onClick={onTriggerPip}
               className="p-1.5 hover:bg-zinc-800/50 rounded-none text-zinc-300 hover:text-white transition-colors cursor-pointer"
               title="Picture in Picture"
             >
               <Layers size={16} />
-            </button>
+            </FocusableButton>
           )}
 
-          <button
-            onClick={onTheaterToggle}
-            className={`p-1.5 hover:bg-zinc-800/50 rounded-none transition-colors cursor-pointer ${isTheaterMode ? 'text-[#E2B646]' : 'text-zinc-300 hover:text-white'}`}
-            title="Theater Mode"
-          >
-            {isTheaterMode ? <Shrink size={16} /> : <Expand size={16} />}
-          </button>
+          {!hideTheaterToggle && (
+            <FocusableButton
+              onClick={onTheaterToggle}
+              className={`p-1.5 hover:bg-zinc-800/50 rounded-none transition-colors cursor-pointer ${isTheaterMode ? 'text-[#E2B646]' : 'text-zinc-300 hover:text-white'}`}
+              title="Theater Mode"
+            >
+              {isTheaterMode ? <Shrink size={16} /> : <Expand size={16} />}
+            </FocusableButton>
+          )}
 
-          <button
+          <FocusableButton
             onClick={onFullscreenToggle}
             className="p-1.5 hover:bg-zinc-800/50 rounded-none text-zinc-300 hover:text-white transition-colors cursor-pointer"
             title="Fullscreen"
           >
             {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-          </button>
+          </FocusableButton>
         </div>
       </div>
     </div>
