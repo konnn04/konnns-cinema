@@ -41,14 +41,14 @@ function HeaderContent() {
         <DesktopNav />
 
         {}
-        <div className="flex items-center space-x-3 sm:space-x-5 flex-none">
+        <div className="flex items-center space-x-2 sm:space-x-4 flex-none">
           <SearchBox />
 
           <Link href="/favorites" className="hidden md:flex text-zinc-400 hover:text-[#E2B646] transition-colors" title="Favorites">
             <Heart size={16} />
           </Link>
 
-          <Link href="/history" className="text-zinc-400 hover:text-[#E2B646] transition-colors relative" title="Watch History">
+          <Link href="/history" className="hidden sm:flex text-zinc-400 hover:text-[#E2B646] transition-colors relative" title="Watch History">
             <History size={16} />
           </Link>
 
@@ -58,7 +58,7 @@ function HeaderContent() {
 
           <UserMenu />
 
-          <Link href="/settings" className="text-zinc-400 hover:text-white transition-colors" title="Settings">
+          <Link href="/settings" className="hidden sm:flex text-zinc-400 hover:text-white transition-colors" title="Settings">
             <Settings size={16} />
           </Link>
         </div>

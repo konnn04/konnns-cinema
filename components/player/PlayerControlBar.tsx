@@ -94,23 +94,23 @@ export default function PlayerControlBar({
       </div>
 
       {/* Button Panel (Play, Volume, PiP, Fullscreen, Speed/Settings) */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center space-x-4">
+      <div className="flex items-center justify-between gap-2 sm:gap-4">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           <FocusableButton
             focusKey={playButtonFocusKey}
             onClick={onPlayToggle}
-            className="p-1.5 hover:bg-zinc-800/50 rounded-none text-zinc-300 hover:text-white transition-colors cursor-pointer"
+            className="p-1 sm:p-1.5 hover:bg-zinc-800/50 rounded-none text-zinc-300 hover:text-white transition-colors cursor-pointer"
           >
-            {isPlaying ? <Pause size={18} /> : <Play size={18} className="fill-current" />}
+            {isPlaying ? <Pause size={17} className="sm:w-[18px] sm:h-[18px]" /> : <Play size={17} className="fill-current sm:w-[18px] sm:h-[18px]" />}
           </FocusableButton>
 
           {!hideVolumeControl && (
-            <div className="flex items-center space-x-2 group/volume">
+            <div className="flex items-center space-x-1 sm:space-x-2 group/volume">
               <FocusableButton
                 onClick={onMuteToggle}
-                className="p-1.5 hover:bg-zinc-800/50 rounded-none text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                className="p-1 sm:p-1.5 hover:bg-zinc-800/50 rounded-none text-zinc-300 hover:text-white transition-colors cursor-pointer"
               >
-                {isMuted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                {isMuted || volume === 0 ? <VolumeX size={15} className="sm:w-4 sm:h-4" /> : <Volume2 size={15} className="sm:w-4 sm:h-4" />}
               </FocusableButton>
               <input
                 type="range"
@@ -119,7 +119,7 @@ export default function PlayerControlBar({
                 step={0.1}
                 value={isMuted ? 0 : volume}
                 onChange={onVolumeChange}
-                className="w-16 accent-[#E2B646] h-1 rounded-none cursor-pointer bg-zinc-800 opacity-0 group-hover/volume:opacity-100 transition-opacity"
+                className="hidden sm:block w-16 accent-[#E2B646] h-1 rounded-none cursor-pointer bg-zinc-800 opacity-0 group-hover/volume:opacity-100 transition-opacity"
               />
             </div>
           )}
@@ -136,7 +136,7 @@ export default function PlayerControlBar({
           )}
         </div>
 
-        <div className="flex items-center space-x-3 text-xs font-mono text-zinc-400">
+        <div className="flex items-center space-x-1 sm:space-x-2.5 text-xs font-mono text-zinc-400">
           {onOpenEqualizer && (
             <FocusableButton
               onClick={onOpenEqualizer}

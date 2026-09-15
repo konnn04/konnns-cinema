@@ -97,6 +97,20 @@
       }
     },
 
+    "remote": {
+      "$sessionId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+
+        "state": {
+          ".validate": "newData.hasChildren(['isPlaying', 'currentTime', 'duration', 'lastUpdated'])"
+        },
+        "command": {
+          ".validate": "newData.hasChildren(['id', 'action', 'timestamp'])"
+        }
+      }
+    },
+
     "watchPartyUidToRoom": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",

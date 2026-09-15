@@ -98,6 +98,16 @@ export const usePreferencesStore = create<PreferencesState>()(
       setTvModeOverride: (mode) => set({ tvModeOverride: mode }),
       setBetaAudioPreset: (preset) =>
         set((state) => {
+          if (preset === 'custom') {
+            const current = state.audioEqSettings || DEFAULT_AUDIO_EQ_SETTINGS;
+            return {
+              betaAudioPreset: 'custom',
+              audioEqSettings: {
+                ...current,
+                preset: 'custom',
+              },
+            };
+          }
           const config = AUDIO_PRESET_CONFIGS[preset] || AUDIO_PRESET_CONFIGS.none;
           const newSettings: AudioEqSettings = {
             preset,

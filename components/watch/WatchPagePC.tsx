@@ -27,6 +27,13 @@ import FloatingComments from '@/components/watchparty/FloatingComments';
 import FloatingReactions from '@/components/watchparty/FloatingReactions';
 import FloatingCommentsToggle from '@/components/watchparty/FloatingCommentsToggle';
 import QuickChatInput from '@/components/watchparty/QuickChatInput';
+import {
+  publishPlayerState,
+  subscribeToRemoteCommands,
+  setupSessionLifecycle,
+  removeSession,
+} from '@/lib/remote/firebaseRemote';
+import { ensureAnonymousAuth } from '@/lib/firebase/client';
 
 const noop = () => { };
 const noopSeek = (_e: React.ChangeEvent<HTMLInputElement>) => { };
@@ -109,55 +116,71 @@ export default function WatchPagePC(props: WatchPagePCProps) {
   const [isCastOpen, setIsCastOpen] = useState(false);
   const [sessionId] = useState(() => `${slug.slice(0, 4)}-${Math.random().toString(36).substring(2, 8)}`);
 
-  // Sync state with mobile Wi-Fi remote
+  // Real-time remote command listener via Firebase (WebSockets, zero HTTP spam)
   useEffect(() => {
-    let lastCmdTime = Date.now();
-    const interval = setInterval(async () => {
-      try {
-        await fetch(`/api/remote/${sessionId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'status',
-            state: {
-              sessionId,
-              movieTitle: movie?.name,
-              episodeName: currentEpisode?.name,
-              isPlaying: player.isPlaying,
-              currentTime: player.currentTime,
-              duration: player.duration,
-              volume: player.volume,
-              isMuted: player.isMuted,
-            },
-          }),
+    if (!sessionId) return;
+    let unsubscribe: (() => void) | null = null;
+    let cancelled = false;
+
+    ensureAnonymousAuth()
+      .then(() => {
+        if (cancelled) return;
+        setupSessionLifecycle(sessionId);
+        unsubscribe = subscribeToRemoteCommands(sessionId, (cmd) => {
+          if (cmd.action === 'togglePlay') player.handlePlayToggle();
+          else if (cmd.action === 'play' && !player.isPlaying) player.handlePlayToggle();
+          else if (cmd.action === 'pause' && player.isPlaying) player.handlePlayToggle();
+          else if (cmd.action === 'seekBy') player.seekBy(cmd.value || 0);
+          else if (cmd.action === 'seekTo' && videoRef.current) videoRef.current.currentTime = cmd.value || 0;
+          else if (cmd.action === 'volume') player.setVolumeLevel(cmd.value ?? 1);
+          else if (cmd.action === 'mute') player.handleMuteToggle();
+          else if (cmd.action === 'toggleFullscreen') player.handleFullscreenToggle();
+          else if (cmd.action === 'nextEpisode') handleNextEpisodeLaunch();
+          else if (cmd.action === 'prevEpisode') handlePreviousEpisodeLaunch?.();
         });
+      })
+      .catch((err) => console.warn('Firebase auth failed for remote:', err));
 
-        const res = await fetch(`/api/remote/${sessionId}?client=pc&since=${lastCmdTime}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.commands && Array.isArray(data.commands)) {
-            for (const cmd of data.commands) {
-              if (cmd.timestamp > lastCmdTime) {
-                lastCmdTime = cmd.timestamp;
-                if (cmd.action === 'togglePlay') player.handlePlayToggle();
-                else if (cmd.action === 'play' && !player.isPlaying) player.handlePlayToggle();
-                else if (cmd.action === 'pause' && player.isPlaying) player.handlePlayToggle();
-                else if (cmd.action === 'seekBy') player.seekBy(cmd.value || 0);
-                else if (cmd.action === 'seekTo' && videoRef.current) videoRef.current.currentTime = cmd.value || 0;
-                else if (cmd.action === 'volume') player.setVolumeLevel(cmd.value ?? 1);
-                else if (cmd.action === 'mute') player.handleMuteToggle();
-                else if (cmd.action === 'toggleFullscreen') player.handleFullscreenToggle();
-                else if (cmd.action === 'nextEpisode') handleNextEpisodeLaunch();
-                else if (cmd.action === 'prevEpisode') handlePreviousEpisodeLaunch?.();
-              }
-            }
-          }
-        }
-      } catch { }
-    }, 1200);
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+      removeSession(sessionId);
+    };
+  }, [sessionId, player, handleNextEpisodeLaunch, handlePreviousEpisodeLaunch, videoRef]);
 
-    return () => clearInterval(interval);
-  }, [sessionId, movie?.name, currentEpisode?.name, player, handleNextEpisodeLaunch, handlePreviousEpisodeLaunch]);
+  // Publish player state to Firebase on playback events (instant sync to phone remote)
+  const currentSec = Math.floor(player.currentTime);
+  const firebaseAuthReady = useRef(false);
+  useEffect(() => {
+    ensureAnonymousAuth()
+      .then(() => { firebaseAuthReady.current = true; })
+      .catch(() => { });
+  }, []);
+
+  useEffect(() => {
+    if (!sessionId || !firebaseAuthReady.current) return;
+    publishPlayerState(sessionId, {
+      sessionId,
+      movieTitle: movie?.name,
+      episodeName: currentEpisode?.name,
+      isPlaying: player.isPlaying,
+      currentTime: player.currentTime,
+      duration: player.duration,
+      volume: player.volume,
+      isMuted: player.isMuted,
+      lastUpdated: Date.now(),
+    });
+  }, [
+    sessionId,
+    movie?.name,
+    currentEpisode?.name,
+    player.isPlaying,
+    player.currentTime,
+    currentSec,
+    player.duration,
+    player.volume,
+    player.isMuted,
+  ]);
 
   const handleDownload = () => {
     window.open(`/download/${slug}/${episodeSlug}?server=${activeServerIdx}`, '_blank', 'noopener,noreferrer');
@@ -167,7 +190,7 @@ export default function WatchPagePC(props: WatchPagePCProps) {
     <div className="relative min-h-screen bg-[#060608] text-zinc-100 select-none pb-20 md:pb-0">
       <Header />
 
-      <main className="w-full pt-20 max-w-7xl mx-auto px-4 sm:px-8 md:px-12 py-8 space-y-8">
+      <main className="w-full pt-20 max-w-[1800px] mx-auto px-4 sm:px-8 md:px-12 py-8 space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
           <div className="col-span-1 lg:col-span-8 space-y-4">
@@ -187,7 +210,7 @@ export default function WatchPagePC(props: WatchPagePCProps) {
                 ref={playerContainerRef}
                 onMouseMove={player.handleMouseMove}
                 onClick={canControlVideo ? player.handlePlayerAreaClick : undefined}
-                className={`relative overflow-hidden bg-black border border-zinc-900 group shadow-2xl cursor-none ${isTheaterMode ? 'w-full max-w-[1800px] aspect-video max-h-[92vh] rounded-none' : 'aspect-video w-full rounded-none'
+                className={`relative  bg-black border border-zinc-900 group shadow-2xl cursor-none ${isTheaterMode ? 'w-full max-w-[1800px] aspect-video max-h-[92vh] rounded-none' : 'aspect-video w-full rounded-none'
                   }`}
                 style={{ cursor: player.showControls ? 'default' : 'none' }}
               >

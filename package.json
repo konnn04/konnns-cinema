@@ -12,6 +12,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
     "@noriginmedia/norigin-spatial-navigation": "^3.2.1",
+    "@types/qrcode": "^1.5.6",
     "@websr/websr": "^0.0.16",
     "anime4k-webgpu": "^1.0.0",
     "autoprefixer": "^10.5.2",
@@ -23,6 +24,7 @@
     "motion": "^12.42.2",
     "next": "^16.2.10",
     "postcss": "^8.5.19",
+    "qrcode": "^1.5.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "tailwind-merge": "^3.6.0",

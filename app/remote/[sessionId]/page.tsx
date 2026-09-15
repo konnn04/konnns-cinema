@@ -16,7 +16,8 @@ import {
   Wifi,
   Smartphone,
 } from 'lucide-react';
-import type { PlaybackState } from '@/lib/remote/types';
+import type { PlaybackState, RemoteAction } from '@/lib/remote/types';
+import { subscribeToPlayerState, sendRemoteCommand as dispatchFirebaseCommand } from '@/lib/remote/firebaseRemote';
 
 export default function RemotePage({ params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = use(params);
@@ -41,46 +42,21 @@ export default function RemotePage({ params }: { params: Promise<{ sessionId: st
     }
   };
 
-  const sendCommand = async (action: string, value?: number) => {
+  const sendCommand = (action: RemoteAction, value?: number) => {
     triggerHaptic();
-    try {
-      await fetch(`/api/remote/${sessionId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'command', action, value }),
-      });
-    } catch (err) {
-      console.error('Failed to send remote command:', err);
-    }
+    dispatchFirebaseCommand(sessionId, action, value);
   };
 
-  // Poll player state every 1.2s
+  // Real-time push listener for player state via Firebase (WebSockets, instant & zero HTTP polling spam)
   useEffect(() => {
-    let mounted = true;
-    const fetchState = async () => {
-      try {
-        const res = await fetch(`/api/remote/${sessionId}?client=phone`);
-        if (res.ok) {
-          const data = await res.json();
-          if (mounted && data.state) {
-            setState((prev) => ({
-              ...prev,
-              ...data.state,
-            }));
-            setConnected(true);
-          }
-        }
-      } catch {
-        if (mounted) setConnected(false);
-      }
-    };
-
-    fetchState();
-    const interval = setInterval(fetchState, 1200);
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
+    const unsubscribe = subscribeToPlayerState(sessionId, (remoteState) => {
+      setState((prev) => ({
+        ...prev,
+        ...remoteState,
+      }));
+      setConnected(true);
+    });
+    return () => unsubscribe();
   }, [sessionId]);
 
   const formatTime = (secs: number) => {
@@ -95,53 +71,53 @@ export default function RemotePage({ params }: { params: Promise<{ sessionId: st
   const displayTime = isScrubbing ? scrubTime : state.currentTime;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-between p-4 max-w-md mx-auto select-none touch-manipulation">
+    <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-between p-3 sm:p-4 max-w-sm sm:max-w-md mx-auto select-none touch-manipulation">
       {/* Top Bar */}
-      <div className="w-full flex items-center justify-between border-b border-zinc-850 pb-3">
+      <div className="w-full flex items-center justify-between border-b border-zinc-850 pb-2 sm:pb-3">
         <div className="flex items-center space-x-2">
-          <div className="p-1.5 bg-[#E2B646]/10 border border-[#E2B646]/30 text-[#E2B646]">
-            <Smartphone size={16} />
+          <div className="p-1 sm:p-1.5 bg-[#E2B646]/10 border border-[#E2B646]/30 text-[#E2B646]">
+            <Smartphone size={14} className="sm:w-4 sm:h-4" />
           </div>
           <div>
-            <h1 className="text-sm font-serif font-black tracking-wider uppercase text-white">
+            <h1 className="text-xs sm:text-sm font-serif font-black tracking-wider uppercase text-white">
               Konnn&apos;s Remote
             </h1>
-            <div className="flex items-center space-x-1.5 mt-0.5">
+            <div className="flex items-center space-x-1 mt-0.5">
               <span
-                className={`w-2 h-2 rounded-full ${
+                className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${
                   connected ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'
                 }`}
               />
-              <span className="text-[10px] font-mono text-zinc-400">
+              <span className="text-[9px] sm:text-[10px] font-mono text-zinc-400">
                 {connected ? 'Đã kết nối thiết bị' : 'Đang tìm kiếm...'}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center space-x-1 px-2.5 py-1 bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-[#E2B646]">
-          <Wifi size={12} />
+        <div className="flex items-center space-x-1 px-2 py-0.5 sm:px-2.5 sm:py-1 bg-zinc-900 border border-zinc-800 text-[9px] sm:text-[10px] font-mono text-[#E2B646]">
+          <Wifi size={11} />
           <span>Wi-Fi</span>
         </div>
       </div>
 
       {/* Now Playing Info Card */}
-      <div className="w-full my-4 p-4 bg-zinc-900/60 border border-zinc-800 rounded-none text-center relative overflow-hidden">
-        <div className="flex items-center justify-center space-x-2 text-[10px] font-mono uppercase tracking-widest text-[#E2B646] mb-1">
-          <Tv size={13} />
+      <div className="w-full my-2 sm:my-3 p-2.5 sm:p-3.5 bg-zinc-900/60 border border-zinc-800 rounded-none text-center relative overflow-hidden">
+        <div className="flex items-center justify-center space-x-1.5 text-[9px] sm:text-[10px] font-mono uppercase tracking-widest text-[#E2B646] mb-0.5">
+          <Tv size={11} />
           <span>Đang phát trên màn hình</span>
         </div>
-        <h2 className="text-base font-serif font-black text-white truncate max-w-xs mx-auto">
+        <h2 className="text-xs sm:text-sm font-serif font-black text-white truncate max-w-[260px] sm:max-w-xs mx-auto">
           {state.movieTitle || 'Đang chờ phim...'}
         </h2>
-        <p className="text-xs font-mono text-zinc-400 mt-0.5">
+        <p className="text-[10px] sm:text-xs font-mono text-zinc-400 mt-0.5">
           {state.episodeName ? `Tập: ${state.episodeName}` : 'Chưa chọn tập'}
         </p>
       </div>
 
       {/* Timeline Scrubber */}
-      <div className="w-full space-y-2 px-2">
-        <div className="flex items-center justify-between text-xs font-mono text-zinc-400">
+      <div className="w-full space-y-1 sm:space-y-1.5 px-1">
+        <div className="flex items-center justify-between text-[10px] sm:text-xs font-mono text-zinc-400">
           <span>{formatTime(displayTime)}</span>
           <span>{formatTime(state.duration)}</span>
         </div>
@@ -162,94 +138,94 @@ export default function RemotePage({ params }: { params: Promise<{ sessionId: st
             setIsScrubbing(false);
             sendCommand('seekTo', scrubTime);
           }}
-          className="w-full h-2 accent-[#E2B646] bg-zinc-800 rounded-none cursor-pointer"
+          className="w-full h-1.5 sm:h-2 accent-[#E2B646] bg-zinc-800 rounded-none cursor-pointer"
         />
       </div>
 
-      {/* Main Playback Controls Deck */}
-      <div className="w-full my-6 flex flex-col items-center gap-6">
-        <div className="flex items-center justify-center gap-6">
+      {/* Main Playback Controls Deck (Compacted to ~230px width, prevents button overflow) */}
+      <div className="w-full my-3 sm:my-5 flex flex-col items-center">
+        <div className="flex items-center justify-center gap-1.5 sm:gap-3">
           {/* Previous Episode */}
           <button
             onClick={() => sendCommand('prevEpisode')}
-            className="p-3.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 active:scale-95 transition-all cursor-pointer"
+            className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 active:scale-90 transition-all cursor-pointer"
             title="Tập trước"
           >
-            <SkipBack size={20} />
+            <SkipBack size={15} className="sm:w-4 sm:h-4" />
           </button>
 
           {/* Jump -10s */}
           <button
             onClick={() => sendCommand('seekBy', -10)}
-            className="flex flex-col items-center justify-center p-3.5 bg-zinc-900 border border-zinc-800 hover:border-[#E2B646]/50 text-zinc-300 active:scale-95 transition-all cursor-pointer"
+            className="w-10 h-10 sm:w-12 sm:h-12 flex flex-col items-center justify-center bg-zinc-900 border border-zinc-800 hover:border-[#E2B646]/50 text-zinc-300 active:scale-90 transition-all cursor-pointer"
             title="Tua lùi 10s"
           >
-            <RotateCcw size={22} />
-            <span className="text-[9px] font-mono font-bold mt-0.5">-10s</span>
+            <RotateCcw size={15} className="sm:w-4 sm:h-4" />
+            <span className="text-[7px] sm:text-[8px] font-mono font-bold leading-none mt-0.5">-10s</span>
           </button>
 
-          {/* Giant Play/Pause Button */}
+          {/* Scaled Play/Pause Button (52px on mobile instead of 80px) */}
           <button
             onClick={() => {
               setState((s) => ({ ...s, isPlaying: !s.isPlaying }));
               sendCommand('togglePlay');
             }}
-            className="w-20 h-20 bg-[#E2B646] text-black flex items-center justify-center shadow-lg shadow-[#E2B646]/20 active:scale-90 transition-all cursor-pointer rounded-full"
+            className="w-13 h-13 sm:w-16 sm:h-16 bg-[#E2B646] text-black flex items-center justify-center shadow-lg shadow-[#E2B646]/20 active:scale-90 transition-all cursor-pointer rounded-full shrink-0"
             title={state.isPlaying ? 'Tạm dừng' : 'Phát'}
           >
             {state.isPlaying ? (
-              <Pause size={34} className="fill-current" />
+              <Pause size={22} className="fill-current sm:w-7 sm:h-7" />
             ) : (
-              <Play size={34} className="fill-current ml-1" />
+              <Play size={22} className="fill-current ml-0.5 sm:w-7 sm:h-7" />
             )}
           </button>
 
           {/* Jump +10s */}
           <button
             onClick={() => sendCommand('seekBy', 10)}
-            className="flex flex-col items-center justify-center p-3.5 bg-zinc-900 border border-zinc-800 hover:border-[#E2B646]/50 text-zinc-300 active:scale-95 transition-all cursor-pointer"
+            className="w-10 h-10 sm:w-12 sm:h-12 flex flex-col items-center justify-center bg-zinc-900 border border-zinc-800 hover:border-[#E2B646]/50 text-zinc-300 active:scale-90 transition-all cursor-pointer"
             title="Tua tới 10s"
           >
-            <RotateCw size={22} />
-            <span className="text-[9px] font-mono font-bold mt-0.5">+10s</span>
+            <RotateCw size={15} className="sm:w-4 sm:h-4" />
+            <span className="text-[7px] sm:text-[8px] font-mono font-bold leading-none mt-0.5">+10s</span>
           </button>
 
           {/* Next Episode */}
           <button
             onClick={() => sendCommand('nextEpisode')}
-            className="p-3.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 active:scale-95 transition-all cursor-pointer"
+            className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 active:scale-90 transition-all cursor-pointer"
             title="Tập tiếp theo"
           >
-            <SkipForward size={20} />
+            <SkipForward size={15} className="sm:w-4 sm:h-4" />
           </button>
         </div>
       </div>
 
       {/* Volume Deck */}
-      <div className="w-full bg-zinc-900/50 border border-zinc-850 p-4 space-y-3">
+      <div className="w-full bg-zinc-900/50 border border-zinc-850 p-2.5 sm:p-3.5 space-y-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-xs font-mono text-zinc-300">
+          <div className="flex items-center space-x-1.5 text-[11px] sm:text-xs font-mono text-zinc-300">
             {state.isMuted || state.volume === 0 ? (
-              <VolumeX size={16} className="text-[#E2B646]" />
+              <VolumeX size={14} className="text-[#E2B646]" />
             ) : state.volume < 0.5 ? (
-              <Volume1 size={16} className="text-[#E2B646]" />
+              <Volume1 size={14} className="text-[#E2B646]" />
             ) : (
-              <Volume2 size={16} className="text-[#E2B646]" />
+              <Volume2 size={14} className="text-[#E2B646]" />
             )}
             <span>Âm lượng</span>
           </div>
-          <span className="text-xs font-mono font-bold text-[#E2B646]">
+          <span className="text-[11px] sm:text-xs font-mono font-bold text-[#E2B646]">
             {state.isMuted ? 'Tắt tiếng' : `${Math.round(state.volume * 100)}%`}
           </span>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 sm:space-x-3">
           <button
             onClick={() => {
               setState((s) => ({ ...s, isMuted: !s.isMuted }));
               sendCommand('mute');
             }}
-            className="px-3 py-2 bg-zinc-850 border border-zinc-750 text-xs font-mono text-zinc-300 active:scale-95"
+            className="px-2 py-1 bg-zinc-850 border border-zinc-750 text-[10px] sm:text-xs font-mono text-zinc-300 active:scale-95 cursor-pointer"
           >
             {state.isMuted ? 'Bật âm' : 'Mute'}
           </button>
@@ -265,23 +241,23 @@ export default function RemotePage({ params }: { params: Promise<{ sessionId: st
               setState((s) => ({ ...s, volume: val, isMuted: val === 0 }));
               sendCommand('volume', val);
             }}
-            className="flex-1 h-2 accent-[#E2B646] bg-zinc-800 rounded-none cursor-pointer"
+            className="flex-1 h-1.5 sm:h-2 accent-[#E2B646] bg-zinc-800 rounded-none cursor-pointer"
           />
         </div>
       </div>
 
       {/* Secondary Bottom Controls */}
-      <div className="w-full pt-4 flex items-center justify-between gap-3">
+      <div className="w-full pt-2.5 sm:pt-3 flex items-center justify-between gap-2">
         <button
           onClick={() => sendCommand('toggleFullscreen')}
-          className="flex-1 flex items-center justify-center space-x-2 py-3 bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300 active:bg-zinc-800 transition-colors"
+          className="flex-1 flex items-center justify-center space-x-1.5 py-2 sm:py-2.5 bg-zinc-900 border border-zinc-800 text-[11px] sm:text-xs font-mono text-zinc-300 active:bg-zinc-800 transition-colors cursor-pointer"
         >
-          <Maximize size={15} />
-          <span>Toàn màn hình</span>
+          <Maximize size={13} />
+          <span>Toàn màn hình TV</span>
         </button>
       </div>
 
-      <div className="text-[10px] font-mono text-zinc-550 pt-2 text-center">
+      <div className="text-[9px] font-mono text-zinc-500 pt-1.5 text-center">
         ID: {sessionId.slice(0, 8)} • Konnn&apos;s Cinema Wi-Fi Remote
       </div>
     </div>

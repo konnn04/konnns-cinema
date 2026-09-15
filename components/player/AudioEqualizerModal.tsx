@@ -33,6 +33,7 @@ const PRESET_LIST: PresetItem[] = [
   { id: 'night', labelVi: 'Ban đêm', labelEn: 'Night Mode', icon: Moon },
   { id: 'rock', labelVi: 'Âm nhạc', labelEn: 'Music / Pop', icon: Music },
   { id: 'treble', labelVi: 'Âm bổng', labelEn: 'Treble Boost', icon: Sparkles },
+  { id: 'custom', labelVi: 'Tự chỉnh', labelEn: 'Custom', icon: SlidersHorizontal },
 ];
 
 export default function AudioEqualizerModal({ isOpen, onClose, audioError }: AudioEqualizerModalProps) {
@@ -41,6 +42,27 @@ export default function AudioEqualizerModal({ isOpen, onClose, audioError }: Aud
   const setAudioEqSettings = usePreferencesStore((s) => s.setAudioEqSettings);
 
   const handleSelectPreset = (preset: AudioPreset) => {
+    if (preset === 'custom') {
+      // Inherit the exact current preset values into custom so user can fine-tune from there
+      setAudioEqSettings((prev) => {
+        const baseConfig = prev.preset !== 'custom' ? AUDIO_PRESET_CONFIGS[prev.preset] : null;
+        if (baseConfig) {
+          return {
+            preset: 'custom',
+            bands: [...baseConfig.bands] as [number, number, number, number, number, number],
+            bassBoost: baseConfig.bassBoost,
+            vocalBoost: baseConfig.vocalBoost,
+            surround: baseConfig.surround,
+            preamp: baseConfig.preamp,
+          };
+        }
+        return {
+          ...prev,
+          preset: 'custom',
+        };
+      });
+      return;
+    }
     const config = AUDIO_PRESET_CONFIGS[preset] || AUDIO_PRESET_CONFIGS.none;
     const nextSettings: AudioEqSettings = {
       preset,
@@ -54,20 +76,42 @@ export default function AudioEqualizerModal({ isOpen, onClose, audioError }: Aud
   };
 
   const handleBandChange = (index: number, val: number) => {
-    const newBands = [...settings.bands] as [number, number, number, number, number, number];
-    newBands[index] = val;
-    setAudioEqSettings({
-      ...settings,
-      preset: 'custom',
-      bands: newBands,
+    setAudioEqSettings((prev) => {
+      const baseConfig = prev.preset !== 'custom' ? AUDIO_PRESET_CONFIGS[prev.preset] : null;
+      const currentBands = baseConfig
+        ? [...baseConfig.bands]
+        : prev.bands && prev.bands.length === 6
+        ? [...prev.bands]
+        : [...DEFAULT_AUDIO_EQ_SETTINGS.bands];
+      const newBands = currentBands as [number, number, number, number, number, number];
+      newBands[index] = val;
+      return {
+        preset: 'custom',
+        bands: newBands,
+        bassBoost: baseConfig ? baseConfig.bassBoost : prev.bassBoost,
+        vocalBoost: baseConfig ? baseConfig.vocalBoost : prev.vocalBoost,
+        surround: baseConfig ? baseConfig.surround : prev.surround,
+        preamp: baseConfig ? baseConfig.preamp : prev.preamp,
+      };
     });
   };
 
   const handleBoostChange = (field: 'bassBoost' | 'vocalBoost' | 'surround' | 'preamp', val: number) => {
-    setAudioEqSettings({
-      ...settings,
-      preset: 'custom',
-      [field]: val,
+    setAudioEqSettings((prev) => {
+      const baseConfig = prev.preset !== 'custom' ? AUDIO_PRESET_CONFIGS[prev.preset] : null;
+      return {
+        preset: 'custom',
+        bands: baseConfig
+          ? ([...baseConfig.bands] as [number, number, number, number, number, number])
+          : prev.bands && prev.bands.length === 6
+          ? [...prev.bands]
+          : [...DEFAULT_AUDIO_EQ_SETTINGS.bands],
+        bassBoost: baseConfig ? baseConfig.bassBoost : prev.bassBoost,
+        vocalBoost: baseConfig ? baseConfig.vocalBoost : prev.vocalBoost,
+        surround: baseConfig ? baseConfig.surround : prev.surround,
+        preamp: baseConfig ? baseConfig.preamp : prev.preamp,
+        [field]: val,
+      };
     });
   };
 
@@ -88,22 +132,22 @@ export default function AudioEqualizerModal({ isOpen, onClose, audioError }: Aud
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ duration: 0.2 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 shadow-2xl p-5 sm:p-6 flex flex-col gap-5 text-white max-h-[90vh] overflow-y-auto no-scrollbar"
+            className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 shadow-2xl p-3.5 sm:p-6 flex flex-col gap-4 sm:gap-5 text-white max-h-[92vh] overflow-y-auto no-scrollbar"
           >
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-zinc-850 pb-3">
-              <div className="flex items-center space-x-2.5">
-                <div className="p-2 bg-[#E2B646]/10 border border-[#E2B646]/30 text-[#E2B646]">
-                  <SlidersHorizontal size={18} />
+            <div className="flex items-center justify-between border-b border-zinc-850 pb-2.5 sm:pb-3">
+              <div className="flex items-center space-x-2 sm:space-x-2.5">
+                <div className="p-1.5 sm:p-2 bg-[#E2B646]/10 border border-[#E2B646]/30 text-[#E2B646]">
+                  <SlidersHorizontal size={16} className="sm:w-[18px] sm:h-[18px]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-serif font-black tracking-wide text-white uppercase flex items-center gap-2">
-                    <span>{language === 'vi' ? 'Bộ Tùy Biến Âm Thanh & Equalizer' : 'Audio Equalizer & Enhancer'}</span>
-                    <span className="text-[9px] font-mono px-1.5 py-0.5 border border-[#E2B646]/40 text-[#E2B646] uppercase font-normal">
+                  <h3 className="text-xs sm:text-base font-serif font-black tracking-wide text-white uppercase flex items-center gap-1.5 sm:gap-2">
+                    <span>{language === 'vi' ? 'Bộ Tùy Biến Âm Thanh' : 'Audio Equalizer'}</span>
+                    <span className="text-[8px] sm:text-[9px] font-mono px-1 sm:px-1.5 py-0.2 sm:py-0.5 border border-[#E2B646]/40 text-[#E2B646] uppercase font-normal">
                       Pro Cinema
                     </span>
                   </h3>
-                  <p className="text-[11px] text-zinc-400 font-sans mt-0.5">
+                  <p className="text-[10px] sm:text-[11px] text-zinc-400 font-sans mt-0.5 hidden sm:block">
                     {language === 'vi'
                       ? 'Điều chỉnh chất âm, tăng cường Super Bass và tối ưu giọng thoại rạp phim'
                       : 'Fine-tune sound frequencies, enhance Super Bass, and clarify speech'}

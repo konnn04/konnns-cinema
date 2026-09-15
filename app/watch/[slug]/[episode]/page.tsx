@@ -155,6 +155,7 @@ export default function WatchPage({ params }: WatchPageProps) {
   }, [partyRoomCode, canControlVideo, player.isPlaying]);
 
   const betaAudioPreset = usePreferencesStore((s) => s.betaAudioPreset);
+  const audioEqSettings = usePreferencesStore((s) => s.audioEqSettings);
   const betaFsrUpscale = usePreferencesStore((s) => s.betaFsrUpscale);
   const betaFsrUpscaleMode = usePreferencesStore((s) => s.betaFsrUpscaleMode);
   const betaFrameInterpolation = usePreferencesStore((s) => s.betaFrameInterpolation);
@@ -162,7 +163,11 @@ export default function WatchPage({ params }: WatchPageProps) {
   const setBetaFsrUpscale = usePreferencesStore((s) => s.setBetaFsrUpscale);
   const setBetaFrameInterpolation = usePreferencesStore((s) => s.setBetaFrameInterpolation);
 
-  const audioEnhancer = useAudioEnhancer({ videoRef, preset: betaAudioPreset });
+  const audioEnhancer = useAudioEnhancer({
+    videoRef,
+    preset: betaAudioPreset,
+    settings: audioEqSettings,
+  });
   const fsrUpscale = useFsrUpscale({
     videoRef,
     canvasRef: effectsCanvasRef,

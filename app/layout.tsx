@@ -1,4 +1,4 @@
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import {Outfit, Inter, JetBrains_Mono, Be_Vietnam_Pro} from 'next/font/google';
 import {LanguageProvider} from '@/hooks/useLanguage';
 import {AuthProvider} from '@/hooks/useAuth';
@@ -33,6 +33,12 @@ const serif = Be_Vietnam_Pro({
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

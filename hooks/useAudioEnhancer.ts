@@ -99,7 +99,7 @@ export function useAudioEnhancer({ videoRef, preset, settings }: UseAudioEnhance
   useEffect(() => {
     if (settings) {
       activeSettingsRef.current = settings;
-    } else if (preset) {
+    } else if (preset && preset !== 'custom') {
       const config = AUDIO_PRESET_CONFIGS[preset] || AUDIO_PRESET_CONFIGS.none;
       activeSettingsRef.current = {
         preset,
