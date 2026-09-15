@@ -18,6 +18,7 @@ import PlayerControlBar from '@/components/player/PlayerControlBar';
 import AutoNextOverlay from '@/components/player/AutoNextOverlay';
 import SkipIntroPrompt, { SKIP_INTRO_FOCUS_KEY } from '@/components/player/SkipIntroPrompt';
 import { SkipFeedbackOverlay, BufferingOverlay, PlayerErrorOverlay } from '@/components/player/PlayerOverlays';
+import VolumeFeedbackOverlay from '@/components/player/VolumeFeedbackOverlay';
 import WatchPartyToggle from '@/components/watchparty/WatchPartyToggle';
 import EpisodeChangePrompt from '@/components/watchparty/EpisodeChangePrompt';
 import FloatingComments from '@/components/watchparty/FloatingComments';
@@ -53,6 +54,7 @@ export interface WatchPageTVProps {
   setShowAutoNext: (value: boolean) => void;
   autoNextCounter: number;
   handleNextEpisodeLaunch: () => void;
+  handlePreviousEpisodeLaunch?: () => void;
   handleVideoEnded: () => void;
 
   showSkipIntroPrompt: boolean;
@@ -80,7 +82,7 @@ export default function WatchPageTV(props: WatchPageTVProps) {
     movie, episodes, activeServerIdx, handleServerChange, currentEpisode, nextEpisode, isAnime,
     player, videoRef, playerContainerRef, canControlVideo, handleTimeUpdate,
     isBuffering, setIsBuffering, playerError, setPlayerError, setRetryNonce,
-    showAutoNext, setShowAutoNext, autoNextCounter, handleNextEpisodeLaunch, handleVideoEnded,
+    showAutoNext, setShowAutoNext, autoNextCounter, handleNextEpisodeLaunch, handlePreviousEpisodeLaunch, handleVideoEnded,
     showSkipIntroPrompt, handleSkipOpEd, setIntroDismissedForEpisode,
     partyRoomCode, party, autoJoinCode,
     isFavorited, toggleFavorite, isReminded, toggleReminder,
@@ -201,6 +203,7 @@ export default function WatchPageTV(props: WatchPageTVProps) {
         />
 
         <SkipFeedbackOverlay direction={player.skipFeedback} />
+        <VolumeFeedbackOverlay feedback={player.volumeFeedback} />
 
         {isBuffering && !playerError && <BufferingOverlay />}
 

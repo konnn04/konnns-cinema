@@ -1,6 +1,6 @@
 'use client';
 
-import { RefObject } from 'react';
+import { useState, useRef, useEffect, RefObject } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Heart, Bell, BellOff, Star, MoveLeft, Lock, Unlock, Download } from 'lucide-react';
@@ -18,6 +18,9 @@ import StreamSidebar from '@/components/player/StreamSidebar';
 import AutoNextOverlay from '@/components/player/AutoNextOverlay';
 import SkipIntroPrompt from '@/components/player/SkipIntroPrompt';
 import { SkipFeedbackOverlay, BufferingOverlay, PlayerErrorOverlay } from '@/components/player/PlayerOverlays';
+import VolumeFeedbackOverlay from '@/components/player/VolumeFeedbackOverlay';
+import AudioEqualizerModal from '@/components/player/AudioEqualizerModal';
+import CastModal from '@/components/player/CastModal';
 import WatchPartyToggle from '@/components/watchparty/WatchPartyToggle';
 import EpisodeChangePrompt from '@/components/watchparty/EpisodeChangePrompt';
 import FloatingComments from '@/components/watchparty/FloatingComments';
@@ -71,6 +74,7 @@ export interface WatchPagePCProps {
   setShowAutoNext: (value: boolean) => void;
   autoNextCounter: number;
   handleNextEpisodeLaunch: () => void;
+  handlePreviousEpisodeLaunch?: () => void;
   handleVideoEnded: () => void;
 
   showSkipIntroPrompt: boolean;
@@ -95,11 +99,65 @@ export default function WatchPagePC(props: WatchPagePCProps) {
     isTheaterMode, setIsTheaterMode,
     isBuffering, setIsBuffering, playerError, setPlayerError, setRetryNonce,
     isSharpenEnabled, setIsSharpenEnabled, showEffectsCanvas, webgpuSupported, fsrError, frameInterpolationError, audioError,
-    showAutoNext, setShowAutoNext, autoNextCounter, handleNextEpisodeLaunch, handleVideoEnded,
+    showAutoNext, setShowAutoNext, autoNextCounter, handleNextEpisodeLaunch, handlePreviousEpisodeLaunch, handleVideoEnded,
     showSkipIntroPrompt, handleSkipOpEd, setIntroDismissedForEpisode,
     partyRoomCode, party, autoJoinCode,
     isFavorited, toggleFavorite, isReminded, toggleReminder,
   } = props;
+
+  const [isEqualizerOpen, setIsEqualizerOpen] = useState(false);
+  const [isCastOpen, setIsCastOpen] = useState(false);
+  const [sessionId] = useState(() => `${slug.slice(0, 4)}-${Math.random().toString(36).substring(2, 8)}`);
+
+  // Sync state with mobile Wi-Fi remote
+  useEffect(() => {
+    let lastCmdTime = Date.now();
+    const interval = setInterval(async () => {
+      try {
+        await fetch(`/api/remote/${sessionId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'status',
+            state: {
+              sessionId,
+              movieTitle: movie?.name,
+              episodeName: currentEpisode?.name,
+              isPlaying: player.isPlaying,
+              currentTime: player.currentTime,
+              duration: player.duration,
+              volume: player.volume,
+              isMuted: player.isMuted,
+            },
+          }),
+        });
+
+        const res = await fetch(`/api/remote/${sessionId}?client=pc&since=${lastCmdTime}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.commands && Array.isArray(data.commands)) {
+            for (const cmd of data.commands) {
+              if (cmd.timestamp > lastCmdTime) {
+                lastCmdTime = cmd.timestamp;
+                if (cmd.action === 'togglePlay') player.handlePlayToggle();
+                else if (cmd.action === 'play' && !player.isPlaying) player.handlePlayToggle();
+                else if (cmd.action === 'pause' && player.isPlaying) player.handlePlayToggle();
+                else if (cmd.action === 'seekBy') player.seekBy(cmd.value || 0);
+                else if (cmd.action === 'seekTo' && videoRef.current) videoRef.current.currentTime = cmd.value || 0;
+                else if (cmd.action === 'volume') player.setVolumeLevel(cmd.value ?? 1);
+                else if (cmd.action === 'mute') player.handleMuteToggle();
+                else if (cmd.action === 'toggleFullscreen') player.handleFullscreenToggle();
+                else if (cmd.action === 'nextEpisode') handleNextEpisodeLaunch();
+                else if (cmd.action === 'prevEpisode') handlePreviousEpisodeLaunch?.();
+              }
+            }
+          }
+        }
+      } catch { }
+    }, 1200);
+
+    return () => clearInterval(interval);
+  }, [sessionId, movie?.name, currentEpisode?.name, player, handleNextEpisodeLaunch, handlePreviousEpisodeLaunch]);
 
   const handleDownload = () => {
     window.open(`/download/${slug}/${episodeSlug}?server=${activeServerIdx}`, '_blank', 'noopener,noreferrer');
@@ -181,6 +239,7 @@ export default function WatchPagePC(props: WatchPagePCProps) {
                 )}
 
                 <SkipFeedbackOverlay direction={player.skipFeedback} />
+                <VolumeFeedbackOverlay feedback={player.volumeFeedback} />
 
                 {isBuffering && !playerError && <BufferingOverlay />}
 
@@ -237,14 +296,14 @@ export default function WatchPagePC(props: WatchPagePCProps) {
                 </AnimatePresence>
 
                 <AnimatePresence>
-                  {player.showControls && !playerError && !player.isLocked && (
+                  {player.showControls && !playerError && !player.isLocked && !showAutoNext && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/60 flex flex-col justify-between p-4 z-20"
+                      className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/60 flex flex-col justify-between p-4 z-20 pointer-events-none"
                     >
-                      <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center justify-between gap-4 pointer-events-auto">
                         <div className="min-w-0">
                           <span className="text-[9px] font-serif text-[#E2B646] font-bold uppercase tracking-[0.2em] italic">
                             NOW PLAYING &bull; EP {currentEpisode?.name || '1'}
@@ -256,48 +315,52 @@ export default function WatchPagePC(props: WatchPagePCProps) {
                       </div>
 
                       {partyRoomCode && !canControlVideo && (
-                        <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-wider text-center">
+                        <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-wider text-center pointer-events-auto">
                           {t('watchparty.host_controls_only')}
                         </p>
                       )}
 
-                      <PlayerControlBar
-                        currentTime={player.currentTime}
-                        duration={player.duration}
-                        bufferedEnd={player.bufferedEnd}
-                        formatTime={player.formatTime}
-                        onSeek={canControlVideo ? player.handleSeek : noopSeek}
-                        onSeekStart={canControlVideo ? player.handleSeekStart : noop}
-                        onSeekEnd={canControlVideo ? player.handleSeekEnd : noop}
-                        isPlaying={player.isPlaying}
-                        onPlayToggle={canControlVideo ? player.handlePlayToggle : noop}
-                        isMuted={player.isMuted}
-                        volume={player.volume}
-                        onVolumeChange={player.handleVolumeChange}
-                        onMuteToggle={player.handleMuteToggle}
-                        showAnimeSkip={isAnime}
-                        onSkipOpEd={handleSkipOpEd}
-                        isSharpenEnabled={isSharpenEnabled}
-                        onToggleSharpen={() => setIsSharpenEnabled((v) => !v)}
-                        playbackRate={player.playbackRate}
-                        onSetRate={player.setRate}
-                        isPipAvailable={player.isPipAvailable}
-                        onTriggerPip={player.triggerPictureInPicture}
-                        isFullscreen={player.isFullscreen}
-                        onFullscreenToggle={player.handleFullscreenToggle}
-                        isTheaterMode={isTheaterMode}
-                        onTheaterToggle={() => setIsTheaterMode((v) => !v)}
-                        webgpuSupported={webgpuSupported}
-                        fsrError={fsrError}
-                        frameInterpolationError={frameInterpolationError}
-                        audioError={audioError}
-                      />
+                      <div className="pointer-events-auto">
+                        <PlayerControlBar
+                          currentTime={player.currentTime}
+                          duration={player.duration}
+                          bufferedEnd={player.bufferedEnd}
+                          formatTime={player.formatTime}
+                          onSeek={canControlVideo ? player.handleSeek : noopSeek}
+                          onSeekStart={canControlVideo ? player.handleSeekStart : noop}
+                          onSeekEnd={canControlVideo ? player.handleSeekEnd : noop}
+                          isPlaying={player.isPlaying}
+                          onPlayToggle={canControlVideo ? player.handlePlayToggle : noop}
+                          isMuted={player.isMuted}
+                          volume={player.volume}
+                          onVolumeChange={player.handleVolumeChange}
+                          onMuteToggle={player.handleMuteToggle}
+                          showAnimeSkip={isAnime}
+                          onSkipOpEd={handleSkipOpEd}
+                          isSharpenEnabled={isSharpenEnabled}
+                          onToggleSharpen={() => setIsSharpenEnabled((v) => !v)}
+                          playbackRate={player.playbackRate}
+                          onSetRate={player.setRate}
+                          isPipAvailable={player.isPipAvailable}
+                          onTriggerPip={player.triggerPictureInPicture}
+                          isFullscreen={player.isFullscreen}
+                          onFullscreenToggle={player.handleFullscreenToggle}
+                          isTheaterMode={isTheaterMode}
+                          onTheaterToggle={() => setIsTheaterMode((v) => !v)}
+                          onOpenEqualizer={() => setIsEqualizerOpen(true)}
+                          onOpenCast={() => setIsCastOpen(true)}
+                          webgpuSupported={webgpuSupported}
+                          fsrError={fsrError}
+                          frameInterpolationError={frameInterpolationError}
+                          audioError={audioError}
+                        />
+                      </div>
 
                       {partyRoomCode && (
-                        <>
+                        <div className="pointer-events-auto">
                           <FloatingCommentsToggle />
                           <QuickChatInput />
-                        </>
+                        </div>
                       )}
                     </motion.div>
                   )}
@@ -453,6 +516,22 @@ export default function WatchPagePC(props: WatchPagePCProps) {
           </div>
         </div>
       </main>
+
+      <AudioEqualizerModal
+        isOpen={isEqualizerOpen}
+        onClose={() => setIsEqualizerOpen(false)}
+        audioError={audioError}
+      />
+
+      <CastModal
+        isOpen={isCastOpen}
+        onClose={() => setIsCastOpen(false)}
+        videoRef={videoRef}
+        sessionId={sessionId}
+        movieTitle={movie?.name}
+        episodeName={currentEpisode?.name}
+        mediaUrl={currentEpisode?.link_m3u8}
+      />
 
       <Footer />
       <MobileNav />

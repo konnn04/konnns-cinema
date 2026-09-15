@@ -1,6 +1,6 @@
 'use client';
 
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Expand, Shrink, Layers, SkipForward } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Expand, Shrink, Layers, SkipForward, Cast, SlidersHorizontal } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import FocusableButton from '@/components/tv/FocusableButton';
 import PlayerSettingsPopover from './PlayerSettingsPopover';
@@ -42,6 +42,9 @@ interface PlayerControlBarProps {
   onTheaterToggle: () => void;
   hideTheaterToggle?: boolean;
 
+  onOpenEqualizer?: () => void;
+  onOpenCast?: () => void;
+
   webgpuSupported: boolean;
   fsrError: string | null;
   frameInterpolationError: string | null;
@@ -58,6 +61,7 @@ export default function PlayerControlBar({
   isPipAvailable, onTriggerPip,
   isFullscreen, onFullscreenToggle,
   isTheaterMode, onTheaterToggle, hideTheaterToggle,
+  onOpenEqualizer, onOpenCast,
   webgpuSupported, fsrError, frameInterpolationError, audioError,
 }: PlayerControlBarProps) {
   const { t } = useLanguage();
@@ -133,6 +137,26 @@ export default function PlayerControlBar({
         </div>
 
         <div className="flex items-center space-x-3 text-xs font-mono text-zinc-400">
+          {onOpenEqualizer && (
+            <FocusableButton
+              onClick={onOpenEqualizer}
+              className="p-1.5 hover:bg-zinc-800/50 rounded-none text-zinc-300 hover:text-[#E2B646] transition-colors cursor-pointer"
+              title={t('player.equalizer_title') || 'Bộ chỉnh âm thanh (Equalizer)'}
+            >
+              <SlidersHorizontal size={16} />
+            </FocusableButton>
+          )}
+
+          {onOpenCast && (
+            <FocusableButton
+              onClick={onOpenCast}
+              className="p-1.5 hover:bg-zinc-800/50 rounded-none text-zinc-300 hover:text-[#E2B646] transition-colors cursor-pointer"
+              title={t('player.cast_title') || 'Truyền video & Remote (Cast)'}
+            >
+              <Cast size={16} />
+            </FocusableButton>
+          )}
+
           <PlayerSettingsPopover
             isSharpenEnabled={isSharpenEnabled}
             onToggleSharpen={onToggleSharpen}

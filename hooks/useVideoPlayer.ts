@@ -46,6 +46,7 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
   const isPipAvailable = useSyncExternalStore(noopSubscribe, getPipSnapshot, getPipServerSnapshot);
   const [showControls, setShowControls] = useState(true);
   const [skipFeedback, setSkipFeedback] = useState<'forward' | 'backward' | null>(null);
+  const [volumeFeedback, setVolumeFeedback] = useState<{ volume: number; isMuted: boolean } | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [bufferedEnd, setBufferedEnd] = useState(0);
 
@@ -57,6 +58,7 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const volumeFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -159,21 +161,31 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
     isScrubbingRef.current = false;
   }, []);
 
-  const setVolumeLevel = useCallback((vol: number) => {
+  const triggerVolumeFeedback = useCallback((vol: number, muted: boolean) => {
+    if (volumeFeedbackTimeoutRef.current) clearTimeout(volumeFeedbackTimeoutRef.current);
+    setVolumeFeedback({ volume: vol, isMuted: muted });
+    volumeFeedbackTimeoutRef.current = setTimeout(() => {
+      setVolumeFeedback(null);
+    }, 900);
+  }, []);
+
+  const setVolumeLevel = useCallback((vol: number, showFeedback = true) => {
     const video = videoRef.current;
-    const muted = vol === 0;
-    setVolume(vol);
+    const clamped = Math.max(0, Math.min(1, Math.round(vol * 100) / 100));
+    const muted = clamped === 0;
+    setVolume(clamped);
     setIsMuted(muted);
     if (video) {
-      video.volume = vol;
+      video.volume = clamped;
       video.muted = muted;
     }
-    usePreferencesStore.getState().setPlayerVolume(vol);
+    usePreferencesStore.getState().setPlayerVolume(clamped);
     usePreferencesStore.getState().setPlayerMuted(muted);
-  }, [videoRef]);
+    if (showFeedback) triggerVolumeFeedback(clamped, muted);
+  }, [videoRef, triggerVolumeFeedback]);
 
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setVolumeLevel(parseFloat(e.target.value));
+    setVolumeLevel(parseFloat(e.target.value), true);
   }, [setVolumeLevel]);
 
   const handleMuteToggle = useCallback(() => {
@@ -182,9 +194,10 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
       const next = !prev;
       if (video) video.muted = next;
       usePreferencesStore.getState().setPlayerMuted(next);
+      triggerVolumeFeedback(video ? video.volume : volume, next);
       return next;
     });
-  }, [videoRef]);
+  }, [videoRef, volume, triggerVolumeFeedback]);
 
   const setRate = useCallback((rate: number) => {
     setPlaybackRate(rate);
@@ -301,6 +314,7 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
     return () => {
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
       if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+      if (volumeFeedbackTimeoutRef.current) clearTimeout(volumeFeedbackTimeoutRef.current);
       if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
     };
   }, []);
@@ -381,23 +395,29 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
           break;
         case 'ArrowUp': {
           e.preventDefault();
-          const upVol = Math.min(1, video.volume + 0.1);
+          const cur = video.muted ? 0 : video.volume;
+          const upVol = Math.min(1, Math.round((cur + 0.05) * 100) / 100);
           video.volume = upVol;
+          video.muted = false;
           setVolume(upVol);
           setIsMuted(false);
           usePreferencesStore.getState().setPlayerVolume(upVol);
           usePreferencesStore.getState().setPlayerMuted(false);
+          triggerVolumeFeedback(upVol, false);
           break;
         }
         case 'ArrowDown': {
           e.preventDefault();
-          const downVol = Math.max(0, video.volume - 0.1);
+          const cur = video.muted ? 0 : video.volume;
+          const downVol = Math.max(0, Math.round((cur - 0.05) * 100) / 100);
           const downMuted = downVol === 0;
           video.volume = downVol;
+          video.muted = downMuted;
           setVolume(downVol);
           setIsMuted(downMuted);
           usePreferencesStore.getState().setPlayerVolume(downVol);
           usePreferencesStore.getState().setPlayerMuted(downMuted);
+          triggerVolumeFeedback(downVol, downMuted);
           break;
         }
         case 'KeyF':
@@ -415,7 +435,7 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [videoRef, handlePlayToggle, handleMuteToggle, handleFullscreenToggle, seekBy, isLocked, isTV]);
+  }, [videoRef, handlePlayToggle, handleMuteToggle, handleFullscreenToggle, seekBy, isLocked, isTV, triggerVolumeFeedback]);
 
   const formatTime = useCallback((secs: number) => {
     if (isNaN(secs)) return '00:00';
@@ -429,14 +449,14 @@ export function useVideoPlayer({ videoRef, containerRef }: UseVideoPlayerOptions
   return {
     // state
     isPlaying, currentTime, duration, volume, isMuted, playbackRate,
-    isFullscreen, isPipAvailable, showControls, skipFeedback, isLocked, bufferedEnd,
+    isFullscreen, isPipAvailable, showControls, skipFeedback, volumeFeedback, isLocked, bufferedEnd,
     // video element event bindings
     handleTimeUpdate, handleDurationChange, handleProgress: updateBufferedEnd,
     onPlaying: () => setIsPlaying(true),
     onPause: () => setIsPlaying(false),
     // controls
     handlePlayToggle, handleSeek, handleSeekStart, handleSeekEnd,
-    handleVolumeChange, handleMuteToggle, setVolumeLevel, setRate,
+    handleVolumeChange, handleMuteToggle, setVolumeLevel, triggerVolumeFeedback, setRate,
     handleFullscreenToggle, triggerPictureInPicture,
     handleMouseMove, handlePlayerAreaClick, seekBy, toggleLock,
     toggleControlsVisibility,

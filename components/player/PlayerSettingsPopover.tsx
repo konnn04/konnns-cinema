@@ -17,11 +17,13 @@ interface PlayerSettingsPopoverProps {
   fsrError?: string | null;
   frameInterpolationError?: string | null;
   audioError?: string | null;
+  onOpenEqualizer?: () => void;
 }
 
 export default function PlayerSettingsPopover({
   isSharpenEnabled, onToggleSharpen, playbackRate, onSetRate,
   webgpuSupported = false, fsrError = null, frameInterpolationError = null, audioError = null,
+  onOpenEqualizer,
 }: PlayerSettingsPopoverProps) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -105,6 +107,10 @@ export default function PlayerSettingsPopover({
               fsrError={fsrError}
               frameInterpolationError={frameInterpolationError}
               audioError={audioError}
+              onOpenEqualizer={() => {
+                setOpen(false);
+                onOpenEqualizer?.();
+              }}
             />
           </motion.div>
         )}

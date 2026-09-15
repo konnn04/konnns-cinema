@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AudioPreset } from '@/hooks/useAudioEnhancer';
+import type { AudioPreset, AudioEqSettings } from '@/hooks/useAudioEnhancer';
+import { DEFAULT_AUDIO_EQ_SETTINGS, AUDIO_PRESET_CONFIGS } from '@/hooks/useAudioEnhancer';
 import type { UpscaleMode } from '@/lib/webgpu/upscale';
 import type { FrameInterpolationMode } from '@/lib/webgpu/frameInterpolation';
 
@@ -15,6 +16,10 @@ interface PreferencesState {
   playerAutoNext: boolean;
   playerImageEnhance: boolean;
   tvModeOverride: TVModeOverride;
+
+  // Audio Equalizer & Customization settings
+  audioEqSettings: AudioEqSettings;
+  setAudioEqSettings: (settings: Partial<AudioEqSettings> | ((prev: AudioEqSettings) => AudioEqSettings)) => void;
 
   // BETA lab features -- see components/player/BetaLabMenu.tsx
   betaAudioPreset: AudioPreset;
@@ -58,6 +63,17 @@ export const usePreferencesStore = create<PreferencesState>()(
       playerImageEnhance: false,
       tvModeOverride: 'auto',
 
+      audioEqSettings: DEFAULT_AUDIO_EQ_SETTINGS,
+      setAudioEqSettings: (updater) =>
+        set((state) => {
+          const current = state.audioEqSettings || DEFAULT_AUDIO_EQ_SETTINGS;
+          const next = typeof updater === 'function' ? updater(current) : { ...current, ...updater };
+          return {
+            audioEqSettings: next,
+            betaAudioPreset: next.preset,
+          };
+        }),
+
       betaAudioPreset: 'none',
       betaFsrUpscale: false,
       betaFsrUpscaleMode: 'sharpen',
@@ -80,7 +96,22 @@ export const usePreferencesStore = create<PreferencesState>()(
       setPlayerAutoNext: (value) => set({ playerAutoNext: value }),
       setPlayerImageEnhance: (value) => set({ playerImageEnhance: value }),
       setTvModeOverride: (mode) => set({ tvModeOverride: mode }),
-      setBetaAudioPreset: (preset) => set({ betaAudioPreset: preset }),
+      setBetaAudioPreset: (preset) =>
+        set((state) => {
+          const config = AUDIO_PRESET_CONFIGS[preset] || AUDIO_PRESET_CONFIGS.none;
+          const newSettings: AudioEqSettings = {
+            preset,
+            bands: [...config.bands] as [number, number, number, number, number, number],
+            bassBoost: config.bassBoost,
+            vocalBoost: config.vocalBoost,
+            surround: config.surround,
+            preamp: config.preamp,
+          };
+          return {
+            betaAudioPreset: preset,
+            audioEqSettings: newSettings,
+          };
+        }),
       // FSR upscale and frame interpolation both take over the canvas output,
       // so enabling one turns the other off rather than trying to layer them.
       setBetaFsrUpscale: (value) => set({ betaFsrUpscale: value, betaFrameInterpolation: value ? false : get().betaFrameInterpolation }),

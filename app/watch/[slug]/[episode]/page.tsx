@@ -495,6 +495,7 @@ export default function WatchPage({ params }: WatchPageProps) {
         setShowAutoNext={setShowAutoNext}
         autoNextCounter={autoNextCounter}
         handleNextEpisodeLaunch={handleNextEpisodeLaunch}
+        handlePreviousEpisodeLaunch={handlePreviousEpisodeLaunch}
         handleVideoEnded={handleVideoEnded}
         showSkipIntroPrompt={showSkipIntroPrompt}
         handleSkipOpEd={handleSkipOpEd}
@@ -549,6 +550,7 @@ export default function WatchPage({ params }: WatchPageProps) {
       setShowAutoNext={setShowAutoNext}
       autoNextCounter={autoNextCounter}
       handleNextEpisodeLaunch={handleNextEpisodeLaunch}
+      handlePreviousEpisodeLaunch={handlePreviousEpisodeLaunch}
       handleVideoEnded={handleVideoEnded}
       showSkipIntroPrompt={showSkipIntroPrompt}
       handleSkipOpEd={handleSkipOpEd}

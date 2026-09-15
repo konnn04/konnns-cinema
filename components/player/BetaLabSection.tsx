@@ -1,6 +1,6 @@
 'use client';
 
-import { FlaskConical } from 'lucide-react';
+import { FlaskConical, SlidersHorizontal } from 'lucide-react';
 import { usePreferencesStore } from '@/lib/stores/usePreferencesStore';
 import type { AudioPreset } from '@/hooks/useAudioEnhancer';
 import type { UpscaleMode } from '@/lib/webgpu/upscale';
@@ -11,21 +11,20 @@ interface BetaLabSectionProps {
   fsrError: string | null;
   frameInterpolationError: string | null;
   audioError: string | null;
+  onOpenEqualizer?: () => void;
 }
 
 const AUDIO_PRESETS: { value: AudioPreset; label: string }[] = [
-  { value: 'none', label: 'Off' },
+  { value: 'none', label: 'Off / Flat' },
+  { value: 'super_bass', label: 'Super Bass' },
+  { value: 'cinema', label: 'Cinema' },
   { value: 'dialog', label: 'Dialog Boost' },
-  { value: 'bass', label: 'Bass Boost' },
+  { value: 'night', label: 'Night Mode' },
+  { value: 'rock', label: 'Music / Pop' },
   { value: 'treble', label: 'Treble Boost' },
-  { value: 'loudness', label: 'Loudness Norm.' },
-  { value: 'surround', label: 'Virtual Surround' },
 ];
 
-// Experimental player enhancements: WebGPU upscaling, WebGPU frame
-// interpolation, and Web Audio based audio presets. All BETA -- disabled by
-// default, opt-in per browser session state persisted in preferences.
-export default function BetaLabSection({ webgpuSupported, fsrError, frameInterpolationError, audioError }: BetaLabSectionProps) {
+export default function BetaLabSection({ webgpuSupported, fsrError, frameInterpolationError, audioError, onOpenEqualizer }: BetaLabSectionProps) {
   const betaAudioPreset = usePreferencesStore((s) => s.betaAudioPreset);
   const setBetaAudioPreset = usePreferencesStore((s) => s.setBetaAudioPreset);
   const betaFsrUpscale = usePreferencesStore((s) => s.betaFsrUpscale);
@@ -57,7 +56,20 @@ export default function BetaLabSection({ webgpuSupported, fsrError, frameInterpo
           {AUDIO_PRESETS.map((p) => (
             <option key={p.value} value={p.value}>{p.label}</option>
           ))}
+          {betaAudioPreset === 'custom' && (
+            <option value="custom">Custom (Active)</option>
+          )}
         </select>
+        {onOpenEqualizer && (
+          <button
+            type="button"
+            onClick={onOpenEqualizer}
+            className="w-full flex items-center justify-center space-x-1 py-1.5 bg-zinc-900/80 hover:bg-zinc-850 border border-zinc-800 hover:border-[#E2B646]/50 text-[9px] font-mono text-zinc-300 hover:text-[#E2B646] transition-colors cursor-pointer"
+          >
+            <SlidersHorizontal size={10} />
+            <span>Open Equalizer Modal</span>
+          </button>
+        )}
         {audioError && <p className="text-[8px] text-red-500 leading-tight">{audioError}</p>}
       </div>
 
