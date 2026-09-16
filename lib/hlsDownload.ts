@@ -1,11 +1,3 @@
-// Client-side HLS -> single-file downloader. Fetches every .ts segment
-// referenced by an m3u8 playlist into memory (with limited concurrency),
-// decrypts them if AES-128 (#EXT-X-KEY) is used, and concatenates the raw
-// bytes into one Blob. This is NOT a real MP4 remux -- it's still MPEG-TS
-// bytes end to end, just handed back with a video/mp4 Blob type -- but MPEG-TS
-// is self-synchronizing so most players (VLC, mobile, desktop) open it fine
-// regardless of the .mp4 extension used for the saved filename.
-
 export interface HlsDownloadCallbacks {
   signal?: AbortSignal;
   concurrency?: number;

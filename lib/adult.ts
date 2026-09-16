@@ -1,9 +1,3 @@
-// Shared helpers for gating and censoring 18+ ("Phim 18+", slug: phim-18) content.
-// Thin imperative wrappers over useAdultContentStore -- kept as plain functions
-// (rather than requiring every call site to use the hook) since most callers
-// check this from inside click handlers and render-time branches, not just
-// component bodies. Use the store hook directly wherever reactive updates matter.
-
 import { useAdultContentStore } from '@/lib/stores/useAdultContentStore';
 
 export const ADULT_CATEGORY_SLUG = 'phim-18';

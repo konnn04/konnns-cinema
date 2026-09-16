@@ -19,13 +19,6 @@ let spatialNavInitialized = false;
 
 function ensureSpatialNavInitialized() {
   if (spatialNavInitialized || typeof window === 'undefined') return;
-  // shouldFocusDOMNode: false -- with it on, a real <button>/<a> gets actual
-  // browser focus, so pressing Enter fires the browser's own native
-  // Enter-triggers-click behavior *in addition to* the manual ref.current
-  // .click() every focusable does by default (see useTVFocusable.ts),
-  // double-firing onClick (e.g. play/pause toggling itself right back off).
-  // Visual focus (.tv-focus) is driven by norigin's own `focused` state
-  // regardless, so nothing relies on real DOM focus being set.
   initSpatialNavigation({ shouldFocusDOMNode: false, shouldUseNativeEvents: true });
   spatialNavInitialized = true;
   pauseSpatialNavigation();

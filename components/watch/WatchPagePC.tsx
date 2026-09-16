@@ -68,6 +68,7 @@ export interface WatchPagePCProps {
   playerError: string | null;
   setPlayerError: (value: string | null) => void;
   setRetryNonce: (value: number | ((prev: number) => number)) => void;
+  pauseHlsForRemoteCast: () => void;
 
   isSharpenEnabled: boolean;
   setIsSharpenEnabled: (value: boolean | ((prev: boolean) => boolean)) => void;
@@ -104,7 +105,7 @@ export default function WatchPagePC(props: WatchPagePCProps) {
     movie, episodes, activeServerIdx, handleServerChange, currentEpisode, nextEpisode, animeInfo, isAnime,
     player, videoRef, playerContainerRef, effectsCanvasRef, canControlVideo, handleTimeUpdate,
     isTheaterMode, setIsTheaterMode,
-    isBuffering, setIsBuffering, playerError, setPlayerError, setRetryNonce,
+    isBuffering, setIsBuffering, playerError, setPlayerError, setRetryNonce, pauseHlsForRemoteCast,
     isSharpenEnabled, setIsSharpenEnabled, showEffectsCanvas, webgpuSupported, fsrError, frameInterpolationError, audioError,
     showAutoNext, setShowAutoNext, autoNextCounter, handleNextEpisodeLaunch, handlePreviousEpisodeLaunch, handleVideoEnded,
     showSkipIntroPrompt, handleSkipOpEd, setIntroDismissedForEpisode,
@@ -554,6 +555,8 @@ export default function WatchPagePC(props: WatchPagePCProps) {
         movieTitle={movie?.name}
         episodeName={currentEpisode?.name}
         mediaUrl={currentEpisode?.link_m3u8}
+        onPrepareForRemoteCast={pauseHlsForRemoteCast}
+        onRemoteCastEnded={() => setRetryNonce((n) => n + 1)}
       />
 
       <Footer />

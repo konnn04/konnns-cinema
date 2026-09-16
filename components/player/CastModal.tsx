@@ -29,6 +29,12 @@ interface CastModalProps {
   movieTitle?: string;
   episodeName?: string;
   mediaUrl?: string;
+  /** Called right before we hand the <video> element's src to Remote Playback, so
+   * the caller can detach hls.js (it otherwise fights over video.src via MediaSource). */
+  onPrepareForRemoteCast?: () => void;
+  /** Called once the Remote Playback session ends, so the caller can reinitialize
+   * hls.js and resume local playback. */
+  onRemoteCastEnded?: () => void;
 }
 
 type CastTab = 'remote' | 'browser' | 'stream' | 'chromecast';
@@ -41,6 +47,8 @@ export default function CastModal({
   movieTitle = "Konnn's Cinema",
   episodeName = '',
   mediaUrl = '',
+  onPrepareForRemoteCast,
+  onRemoteCastEnded,
 }: CastModalProps) {
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState<CastTab>('remote');
@@ -52,6 +60,10 @@ export default function CastModal({
   const [deviceName, setDeviceName] = useState<string>('Chromecast / Smart TV');
   const [castError, setCastError] = useState<string | null>(null);
   const [isCastingLoading, setIsCastingLoading] = useState(false);
+  const [castSdkReady, setCastSdkReady] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !!(window as unknown as { cast?: { framework?: unknown } }).cast?.framework;
+  });
 
   const [remoteQrUrl, setRemoteQrUrl] = useState<string>('');
   const [tvQrUrl, setTvQrUrl] = useState<string>('');
@@ -103,31 +115,59 @@ export default function CastModal({
       };
     };
 
-    if (!windowWithCast.cast) {
-      windowWithCast.__onGCastApiAvailable = (isAvailable: boolean) => {
-        if (isAvailable && windowWithCast.cast?.framework && windowWithCast.chrome?.cast) {
-          try {
-            windowWithCast.cast.framework.CastContext.getInstance().setOptions({
-              receiverApplicationId: windowWithCast.chrome.cast.media?.DEFAULT_MEDIA_RECEIVER_APP_ID || 'CC1AD845',
-              autoJoinPolicy: windowWithCast.chrome.cast.AutoJoinPolicy?.ORIGIN_SCOPED || 'origin_scoped',
-            });
-          } catch (e) {
-            console.warn('Google Cast init error:', e);
-          }
-        }
-      };
+    // Already loaded (e.g. modal remounted) — reflected by castSdkReady's lazy
+    // initializer above, nothing more to do.
+    if (windowWithCast.cast?.framework) return;
 
-      const script = document.createElement('script');
-      script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
-      script.async = true;
-      document.body.appendChild(script);
-    }
+    windowWithCast.__onGCastApiAvailable = (isAvailable: boolean) => {
+      if (isAvailable && windowWithCast.cast?.framework && windowWithCast.chrome?.cast) {
+        try {
+          windowWithCast.cast.framework.CastContext.getInstance().setOptions({
+            receiverApplicationId: windowWithCast.chrome.cast.media?.DEFAULT_MEDIA_RECEIVER_APP_ID || 'CC1AD845',
+            autoJoinPolicy: windowWithCast.chrome.cast.AutoJoinPolicy?.ORIGIN_SCOPED || 'origin_scoped',
+          });
+          setCastSdkReady(true);
+        } catch (e) {
+          console.warn('Google Cast init error:', e);
+        }
+      }
+    };
+
+    const script = document.createElement('script');
+    script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
+    script.async = true;
+    document.body.appendChild(script);
   }, []);
+
+  // Wait for the Cast Sender SDK to finish loading (mobile networks can be slow),
+  // instead of falling through immediately to the browser's native Remote Playback
+  // prompt, which cannot actually stream our hls.js/MediaSource (blob:) video to a
+  // receiver — it just connects and shows an idle screen while playback stays local.
+  const waitForCastSdk = (timeoutMs = 4000): Promise<boolean> => {
+    if (castSdkReady) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const startedAt = Date.now();
+      const interval = setInterval(() => {
+        const w = window as unknown as { cast?: { framework?: unknown } };
+        if (w.cast?.framework) {
+          clearInterval(interval);
+          resolve(true);
+        } else if (Date.now() - startedAt >= timeoutMs) {
+          clearInterval(interval);
+          resolve(false);
+        }
+      }, 200);
+    });
+  };
 
   const handleTriggerChromecast = async () => {
     setCastError(null);
     setIsCastingLoading(true);
     const video = videoRef.current;
+
+    if (!(window as unknown as { cast?: { framework?: unknown } }).cast?.framework) {
+      await waitForCastSdk();
+    }
 
     const windowWithCast = window as unknown as {
       cast?: {
@@ -223,16 +263,49 @@ export default function CastModal({
       }
     }
 
-    // 2. Try HTMLMediaElement Remote Playback API
-    const remoteVideo = video as unknown as { remote?: { prompt: () => Promise<void>; state: string } };
-    if (remoteVideo?.remote && typeof remoteVideo.remote.prompt === 'function') {
+    // 2. Fall back to the HTMLMediaElement Remote Playback API. This is the ONLY
+    // Cast path available on mobile browsers: the Google Cast Sender SDK above
+    // (`window.cast.framework`) only ever becomes available on desktop Chrome, so
+    // step 1 always falls through here on Android.
+    //
+    // Our <video> is normally driven by hls.js via MediaSource Extensions, so
+    // `video.currentSrc` is a local `blob:` URL — a Chromecast receiver can never
+    // fetch that. Calling `remote.prompt()` on it still "succeeds" (the session
+    // connects) but the receiver has nothing it can load, so the TV just sits on
+    // its idle Cast logo while playback silently continues on the phone. That is
+    // the exact bug this fallback used to cause.
+    //
+    // Fix: detach hls.js first and point the element straight at the real,
+    // CORS-proxied .m3u8 URL so the receiver can fetch it directly, then restore
+    // local hls.js playback once the cast session ends.
+    if (video && mediaUrl && video.remote && typeof video.remote.prompt === 'function') {
+      const resumeTime = video.currentTime;
+      const castStreamUrl = mediaUrl.startsWith('http')
+        ? `${window.location.origin}/api/proxy/hls?url=${encodeURIComponent(mediaUrl)}`
+        : mediaUrl;
+
+      let restored = false;
+      const restoreLocalPlayback = () => {
+        if (restored) return;
+        restored = true;
+        video.remote?.removeEventListener('disconnect', restoreLocalPlayback);
+        video.src = '';
+        onRemoteCastEnded?.();
+      };
+
       try {
-        await remoteVideo.remote.prompt();
+        onPrepareForRemoteCast?.();
+        video.src = castStreamUrl;
+        video.currentTime = resumeTime;
+        video.remote.addEventListener('disconnect', restoreLocalPlayback);
+
+        await video.remote.prompt();
         setCastConnected(true);
         setIsCastingLoading(false);
         return;
       } catch (err: unknown) {
         console.warn('Remote Playback API prompt error:', err);
+        restoreLocalPlayback();
       }
     }
 
@@ -252,8 +325,8 @@ export default function CastModal({
     setIsCastingLoading(false);
     setCastError(
       language === 'vi'
-        ? 'Không tìm thấy thiết bị Cast/AirPlay hoặc mạng chưa hỗ trợ. Bạn hãy chuyển sang tab "Trình duyệt TV" (Đề xuất tốt nhất).'
-        : 'No Cast/AirPlay device found. Please switch to the "TV Browser" tab.'
+        ? 'Chưa tải xong SDK Google Cast hoặc không tìm thấy thiết bị AirPlay. Bạn hãy thử lại sau vài giây, hoặc chuyển sang tab "Trình duyệt TV" (Đề xuất tốt nhất — luôn hoạt động).'
+        : 'The Google Cast SDK isn\'t ready yet, or no AirPlay device was found. Try again in a few seconds, or switch to the "TV Browser" tab (recommended — always works).'
     );
   };
 
