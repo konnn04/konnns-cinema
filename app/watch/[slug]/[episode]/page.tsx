@@ -266,15 +266,6 @@ export default function WatchPage({ params }: WatchPageProps) {
     router.push(`/watch/${slug}/${episodeSlug}?server=${index}`);
   };
 
-  // Lets CastModal take over `video.currentSrc` to Chromecast the real (proxied)
-  // .m3u8 URL via the Remote Playback API. hls.js normally drives the element via
-  // a MediaSource `blob:` URL, which a remote receiver can never fetch, so it must
-  // be detached first — otherwise hls.js fights over `video.src` and casting stays
-  // silently broken (TV shows only its idle "connected" screen).
-  const pauseHlsForRemoteCast = useCallback(() => {
-    hlsInstanceRef.current?.detachMedia();
-  }, []);
-
   const restorePlayProgress = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -553,7 +544,6 @@ export default function WatchPage({ params }: WatchPageProps) {
       playerError={playerError}
       setPlayerError={setPlayerError}
       setRetryNonce={setRetryNonce}
-      pauseHlsForRemoteCast={pauseHlsForRemoteCast}
       isSharpenEnabled={isSharpenEnabled}
       setIsSharpenEnabled={setIsSharpenEnabled}
       showEffectsCanvas={showEffectsCanvas}

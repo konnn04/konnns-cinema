@@ -29,12 +29,6 @@ interface CastModalProps {
   movieTitle?: string;
   episodeName?: string;
   mediaUrl?: string;
-  /** Called right before we hand the <video> element's src to Remote Playback, so
-   * the caller can detach hls.js (it otherwise fights over video.src via MediaSource). */
-  onPrepareForRemoteCast?: () => void;
-  /** Called once the Remote Playback session ends, so the caller can reinitialize
-   * hls.js and resume local playback. */
-  onRemoteCastEnded?: () => void;
 }
 
 type CastTab = 'remote' | 'browser' | 'stream' | 'chromecast';
@@ -47,8 +41,6 @@ export default function CastModal({
   movieTitle = "Konnn's Cinema",
   episodeName = '',
   mediaUrl = '',
-  onPrepareForRemoteCast,
-  onRemoteCastEnded,
 }: CastModalProps) {
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState<CastTab>('remote');
@@ -63,6 +55,16 @@ export default function CastModal({
   const [castSdkReady, setCastSdkReady] = useState(() => {
     if (typeof window === 'undefined') return false;
     return !!(window as unknown as { cast?: { framework?: unknown } }).cast?.framework;
+  });
+  // Google's Cast Sender SDK (window.cast.framework) only ever loads on desktop
+  // Chrome/Edge — never on Android or iOS — and the browser's generic Remote
+  // Playback API can't hand off HLS either, since Android Chrome can't decode
+  // .m3u8 locally to validate it first. So on Android there is no working way
+  // for THIS page's JS to drive a Chromecast session; only Android's own
+  // system-level "Cast"/screen-mirroring feature (outside our code) can.
+  const [isAndroidMobile] = useState(() => {
+    if (typeof navigator === 'undefined') return false;
+    return /Android/i.test(navigator.userAgent);
   });
 
   const [remoteQrUrl, setRemoteQrUrl] = useState<string>('');
@@ -263,53 +265,21 @@ export default function CastModal({
       }
     }
 
-    // 2. Fall back to the HTMLMediaElement Remote Playback API. This is the ONLY
-    // Cast path available on mobile browsers: the Google Cast Sender SDK above
-    // (`window.cast.framework`) only ever becomes available on desktop Chrome, so
-    // step 1 always falls through here on Android.
-    //
-    // Our <video> is normally driven by hls.js via MediaSource Extensions, so
-    // `video.currentSrc` is a local `blob:` URL — a Chromecast receiver can never
-    // fetch that. Calling `remote.prompt()` on it still "succeeds" (the session
-    // connects) but the receiver has nothing it can load, so the TV just sits on
-    // its idle Cast logo while playback silently continues on the phone. That is
-    // the exact bug this fallback used to cause.
-    //
-    // Fix: detach hls.js first and point the element straight at the real,
-    // CORS-proxied .m3u8 URL so the receiver can fetch it directly, then restore
-    // local hls.js playback once the cast session ends.
-    if (video && mediaUrl && video.remote && typeof video.remote.prompt === 'function') {
-      const resumeTime = video.currentTime;
-      const castStreamUrl = mediaUrl.startsWith('http')
-        ? `${window.location.origin}/api/proxy/hls?url=${encodeURIComponent(mediaUrl)}`
-        : mediaUrl;
+    // NOTE: we deliberately do not fall back to the generic HTMLMediaElement
+    // Remote Playback API (`video.remote.prompt()`) here. It requires the
+    // browser to be able to play the resource *locally* before it will hand
+    // off to a receiver, and Android Chrome can't decode .m3u8 on its own —
+    // that's the whole reason this app needs hls.js in the first place. In
+    // practice that means `prompt()` either rejects outright on the real
+    // stream URL, or "succeeds" against our hls.js/MediaSource `blob:` src
+    // while leaving the receiver with nothing it can fetch — the TV just
+    // shows its idle Cast logo while playback silently continues locally.
+    // isAndroidMobile gates the button that calls this function, so we
+    // should not even reach here on Android; AirPlay below remains valid
+    // since it mirrors already-decoded frames rather than asking the
+    // receiver to fetch a URL.
 
-      let restored = false;
-      const restoreLocalPlayback = () => {
-        if (restored) return;
-        restored = true;
-        video.remote?.removeEventListener('disconnect', restoreLocalPlayback);
-        video.src = '';
-        onRemoteCastEnded?.();
-      };
-
-      try {
-        onPrepareForRemoteCast?.();
-        video.src = castStreamUrl;
-        video.currentTime = resumeTime;
-        video.remote.addEventListener('disconnect', restoreLocalPlayback);
-
-        await video.remote.prompt();
-        setCastConnected(true);
-        setIsCastingLoading(false);
-        return;
-      } catch (err: unknown) {
-        console.warn('Remote Playback API prompt error:', err);
-        restoreLocalPlayback();
-      }
-    }
-
-    // 3. Try Apple AirPlay
+    // 2. Try Apple AirPlay
     const webkitVideo = video as unknown as { webkitShowPlaybackTargetPicker?: () => void };
     if (typeof webkitVideo?.webkitShowPlaybackTargetPicker === 'function') {
       try {
@@ -652,53 +622,105 @@ export default function CastModal({
               </div>
             )}
 
-            {/* TAB 4: Google Cast SDK & AirPlay */}
+            {/* TAB 4: Google Cast SDK & AirPlay (desktop/iOS) — Android mobile gets
+                guidance instead, since neither the Cast Sender SDK nor Remote
+                Playback can actually deliver HLS to a receiver from that platform. */}
             {activeTab === 'chromecast' && (
               <div className="space-y-3.5 py-1 text-left">
-                <div className="p-4 bg-zinc-900/60 border border-zinc-850 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Radio size={15} className={castConnected ? 'text-emerald-400 animate-pulse' : 'text-[#E2B646]'} />
-                      <span className="text-xs font-mono font-bold text-white">
-                        {castConnected ? `Đã kết nối: ${deviceName}` : 'Sẵn sàng truyền (Google Cast / AirPlay)'}
+                {isAndroidMobile ? (
+                  <div className="p-4 bg-zinc-900/60 border border-zinc-850 space-y-3">
+                    <div className="flex items-center space-x-2 text-xs font-mono font-bold text-white">
+                      <Tv size={15} className="text-[#E2B646]" />
+                      <span>
+                        {language === 'vi' ? 'Chromecast trên điện thoại Android' : 'Chromecast on Android phones'}
                       </span>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 border border-[#E2B646]/40 text-[#E2B646]">
-                      Wi-Fi
-                    </span>
-                  </div>
 
-                  <p className="text-xs text-zinc-300 leading-relaxed font-sans">
-                    {language === 'vi'
-                      ? 'Bấm nút bên dưới để chọn thiết bị Chromecast, Google TV hoặc Apple TV. Khi kết nối, video sẽ tự động chuyển sang TV và tạm dừng trên điện thoại/máy tính.'
-                      : 'Click below to pick Chromecast, Google TV, or AirPlay device. Playback transfers to TV and pauses locally.'}
-                  </p>
-
-                  {castError && (
-                    <div className="p-3 bg-red-950/40 border border-red-800/60 text-red-300 text-xs font-mono leading-relaxed space-y-1">
-                      <div className="flex items-center space-x-1.5 font-bold text-red-200">
-                        <AlertTriangle size={14} />
-                        <span>Lưu ý về nguồn phát:</span>
-                      </div>
-                      <p>{castError}</p>
+                    <div className="flex items-start space-x-2 bg-amber-950/40 border border-amber-800/60 p-2.5 text-amber-200 text-xs font-mono leading-relaxed">
+                      <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                      <span>
+                        {language === 'vi'
+                          ? 'Chrome trên Android không cho phép trang web gửi lệnh Cast trực tiếp tới TV (giới hạn của Google, không phải lỗi của trang). Hãy dùng tính năng Cast của chính hệ điều hành bên dưới — cách này thật sự hiển thị hình + tiếng lên TV.'
+                          : "Chrome on Android won't let a webpage send a Cast command straight to your TV (a Google platform limit, not a site bug). Use Android's own system Cast feature below instead — it actually shows picture + sound on the TV."}
+                      </span>
                     </div>
-                  )}
 
-                  <button
-                    onClick={handleTriggerChromecast}
-                    disabled={isCastingLoading}
-                    className="w-full flex items-center justify-center space-x-2 py-3 bg-[#E2B646] text-black font-serif font-black text-xs uppercase tracking-wider hover:bg-white transition-all cursor-pointer shadow-lg disabled:opacity-50"
-                  >
-                    <Cast size={16} />
-                    <span>
-                      {isCastingLoading
-                        ? 'Đang kết nối TV...'
-                        : language === 'vi'
-                        ? 'Tìm & Kết Nối Thiết Bị Cast'
-                        : 'Search & Connect Cast Device'}
-                    </span>
-                  </button>
-                </div>
+                    <ol className="text-xs text-zinc-300 font-sans space-y-1.5 list-decimal list-inside leading-relaxed">
+                      <li>
+                        {language === 'vi'
+                          ? 'Vuốt xuống thanh thông báo → bấm ô "Truyền/Cast" (hoặc mở app Google Home → chọn TV → "Truyền màn hình của bạn").'
+                          : 'Pull down notifications → tap the "Cast" quick tile (or open Google Home → pick your TV → "Cast my screen").'}
+                      </li>
+                      <li>
+                        {language === 'vi'
+                          ? 'Chọn đúng TV/Chromecast, chờ điện thoại kết nối xong.'
+                          : 'Pick your TV/Chromecast and wait for the phone to connect.'}
+                      </li>
+                      <li>
+                        {language === 'vi'
+                          ? 'Quay lại tab này và bấm Play — toàn bộ màn hình điện thoại (kể cả video) sẽ hiện trên TV.'
+                          : 'Come back to this tab and hit play — your whole phone screen, video included, will mirror onto the TV.'}
+                      </li>
+                    </ol>
+
+                    <button
+                      onClick={() => setActiveTab('browser')}
+                      className="w-full flex items-center justify-center space-x-2 py-2.5 bg-zinc-900 border border-emerald-800/60 hover:border-emerald-500 text-xs font-mono text-emerald-300 hover:text-emerald-200 transition-colors cursor-pointer"
+                    >
+                      <Sparkles size={14} />
+                      <span>
+                        {language === 'vi'
+                          ? 'Tốt hơn: dùng tab "Mở trên TV" (nét hơn, không tốn pin quay màn hình)'
+                          : 'Better: use the "Smart TV" tab instead (sharper, no screen-mirroring battery drain)'}
+                      </span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-zinc-900/60 border border-zinc-850 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Radio size={15} className={castConnected ? 'text-emerald-400 animate-pulse' : 'text-[#E2B646]'} />
+                        <span className="text-xs font-mono font-bold text-white">
+                          {castConnected ? `Đã kết nối: ${deviceName}` : 'Sẵn sàng truyền (Google Cast / AirPlay)'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 border border-[#E2B646]/40 text-[#E2B646]">
+                        Wi-Fi
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-zinc-300 leading-relaxed font-sans">
+                      {language === 'vi'
+                        ? 'Bấm nút bên dưới để chọn thiết bị Chromecast, Google TV hoặc Apple TV. Khi kết nối, video sẽ tự động chuyển sang TV và tạm dừng trên điện thoại/máy tính.'
+                        : 'Click below to pick Chromecast, Google TV, or AirPlay device. Playback transfers to TV and pauses locally.'}
+                    </p>
+
+                    {castError && (
+                      <div className="p-3 bg-red-950/40 border border-red-800/60 text-red-300 text-xs font-mono leading-relaxed space-y-1">
+                        <div className="flex items-center space-x-1.5 font-bold text-red-200">
+                          <AlertTriangle size={14} />
+                          <span>Lưu ý về nguồn phát:</span>
+                        </div>
+                        <p>{castError}</p>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={handleTriggerChromecast}
+                      disabled={isCastingLoading}
+                      className="w-full flex items-center justify-center space-x-2 py-3 bg-[#E2B646] text-black font-serif font-black text-xs uppercase tracking-wider hover:bg-white transition-all cursor-pointer shadow-lg disabled:opacity-50"
+                    >
+                      <Cast size={16} />
+                      <span>
+                        {isCastingLoading
+                          ? 'Đang kết nối TV...'
+                          : language === 'vi'
+                          ? 'Tìm & Kết Nối Thiết Bị Cast'
+                          : 'Search & Connect Cast Device'}
+                      </span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
